@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs:ro
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    restart: always
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx-proxy-letsencrypt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs:rw
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    environment:
+      - DEFAULT_EMAIL=admin@YOUR_DOMAIN.com
+    depends_on:
+      - nginx-proxy
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: cloudrad_postgres_prod
+    environment:
+      POSTGRES_USER: cloudrad_admin
+      POSTGRES_PASSWORD: cloudrad_secure_prod_password
+      POSTGRES_DB: cloudrad_db
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: always
+
+  backend:
+    build: ./backend
+    container_name: cloudrad_fastapi_prod
+    environment:
+      - VIRTUAL_HOST=api.YOUR_DOMAIN.com
+      - LETSENCRYPT_HOST=api.YOUR_DOMAIN.com
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=cloudrad_db
+      - POSTGRES_USER=cloudrad_admin
+      - POSTGRES_PASSWORD=cloudrad_secure_prod_password
+      - ORTHANC_URL=http://orthanc:8042
+      - JWT_SECRET=CHANGE_ME_RANDOM_SECRET_KEY_64_CHARS
+      - CORS_ORIGINS=https://YOUR_FRONTEND_DOMAIN.vercel.app
+      - FRONTEND_URL=https://YOUR_FRONTEND_DOMAIN.vercel.app
+    depends_on:
+      - db
+    restart: always
+
+  orthanc:
+    image: osimis/orthanc
+    container_name: cloudrad_orthanc_prod
+    environment:
+      - VIRTUAL_HOST=pacs.YOUR_DOMAIN.com
+      - LETSENCRYPT_HOST=pacs.YOUR_DOMAIN.com
+      - ORTHANC_NAME=CloudRad Production PACS
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=cloudrad_db
+      - POSTGRES_USER=cloudrad_admin
+      - POSTGRES_PASSWORD=cloudrad_secure_prod_password
+      - OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED=true
+      - OHIF_PLUGIN_ENABLED=true
+      - DICOM_WEB_PLUGIN_ENABLED=true
+      - POSTGRESQL_PLUGIN_ENABLED=true
+      - ORTHANC__CORS_ALLOW_ORIGIN=https://YOUR_DOMAIN.com
+      - ORTHANC__CORS_ALLOW_CREDENTIALS=true
+    depends_on:
+      - db
+    volumes:
+      - orthanc_prod_data:/var/lib/orthanc/db
+    restart: always
+
+volumes:
+  certs:
+  vhost:
+  html:
+  postgres_prod_data:
+  orthanc_prod_data:
