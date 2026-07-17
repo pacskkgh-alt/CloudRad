@@ -42,9 +42,10 @@ try:
         "mkdir -p /app",
         "tar -xzf /root/cloudrad_deploy.tar.gz -C /app",
         "sudo apt-get update",
-        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose",
+        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io curl",
+        "mkdir -p ~/.docker/cli-plugins/ && curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose && chmod +x ~/.docker/cli-plugins/docker-compose",
         "cd /app && mv docker-compose.prod.yml docker-compose.yml",
-        "cd /app && docker-compose up -d --build"
+        "cd /app && docker compose up -d --remove-orphans"
     ]
     
     for cmd in commands:
@@ -53,10 +54,16 @@ try:
         
         # Read blocks so we don't hang
         while True:
-            line = stdout.readline()
+            try:
+                line = stdout.readline()
+            except Exception:
+                break
             if not line:
                 break
-            print(line, end="")
+            try:
+                print(line.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding), end="")
+            except:
+                pass
             
         err = stderr.read().decode()
         if err:

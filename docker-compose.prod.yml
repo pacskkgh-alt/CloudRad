@@ -60,22 +60,24 @@ services:
     restart: always
 
   orthanc:
-    image: osimis/orthanc
+    image: osimis/orthanc:21.2.0
     container_name: cloudrad_orthanc_prod
     environment:
       - VIRTUAL_HOST=pacs.167-233-227-144.nip.io
       - LETSENCRYPT_HOST=pacs.167-233-227-144.nip.io
+      - VIRTUAL_PORT=8042
       - ORTHANC_NAME=CloudRad Production PACS
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudrad_db
-      - POSTGRES_USER=cloudrad_admin
-      - POSTGRES_PASSWORD=cloudrad_secure_prod_password
+      - ORTHANC__POSTGRESQL__HOST=db
+      - ORTHANC__POSTGRESQL__PORT=5432
+      - ORTHANC__POSTGRESQL__DATABASE=cloudrad_db
+      - ORTHANC__POSTGRESQL__USERNAME=cloudrad_admin
+      - ORTHANC__POSTGRESQL__PASSWORD=cloudrad_secure_prod_password
       - OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED=true
       - OHIF_PLUGIN_ENABLED=true
       - DICOM_WEB_PLUGIN_ENABLED=true
       - POSTGRESQL_PLUGIN_ENABLED=true
-      - ORTHANC__CORS_ALLOW_ORIGIN=https://167-233-227-144.nip.io
+      - ORTHANC__AUTHENTICATION_ENABLED=false
+      - ORTHANC__CORS_ALLOW_ORIGIN=*
       - ORTHANC__CORS_ALLOW_CREDENTIALS=true
     depends_on:
       - db
