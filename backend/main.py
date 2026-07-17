@@ -1,15 +1,27 @@
 import os
+import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from database import engine, Base
 import models
 import api_upload, api_reports, api_links, api_auth
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+logger = logging.getLogger(__name__)
 
 # Create all tables in the database
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CloudRad API", version="1.0.0", description="CloudRad MVP Backend")
+
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS — use CORS_ORIGINS env var in production
 cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
@@ -31,9 +43,10 @@ app.include_router(api_links.router)
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error on {request.method} {request.url}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal server error: {str(exc)}"},
+        content={"detail": "Internal server error"},
     )
 
 

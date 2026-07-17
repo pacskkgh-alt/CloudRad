@@ -1,12 +1,18 @@
 import os
+import uuid
 import zipfile
 import shutil
+import logging
 import pydicom
 import requests
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from io import BytesIO
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from typing import List
 import models, database, auth
+
+logger = logging.getLogger(__name__)
+MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500 MB
 
 router = APIRouter(prefix="/api", tags=["Upload & Studies"])
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
@@ -14,21 +20,28 @@ ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
 
 @router.get("/studies")
 def get_studies(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
-    """Return all studies for the current doctor's clinic."""
-    patients = (
-        db.query(models.Patient)
-        .filter(models.Patient.clinic_id == current_doctor.clinic_id)
-        .all()
-    )
+    """Return studies based on role."""
+    if current_doctor.role == "admin":
+        patients = db.query(models.Patient).all()
+    else:
+        patients = (
+            db.query(models.Patient)
+            .filter(models.Patient.clinic_id == current_doctor.clinic_id)
+            .all()
+        )
     patient_ids = [p.id for p in patients]
 
     studies = (
         db.query(models.Study)
         .filter(models.Study.patient_id.in_(patient_ids))
         .order_by(models.Study.created_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
@@ -52,19 +65,31 @@ def get_studies(
 
 @router.post("/upload")
 async def upload_dicom_zip(
-    file: UploadFile = File(...),
+    file: UploadFile = File(None),
+    files: list[UploadFile] = File(None),
+    anonymize: bool = Form(False),
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
-    if not file.filename.endswith(".zip"):
-        raise HTTPException(status_code=400, detail="Only ZIP files are supported for bulk upload")
+    if not file and not files:
+        raise HTTPException(status_code=400, detail="No files provided")
 
-    temp_dir = f"/tmp/{file.filename}"
+    temp_uuid = uuid.uuid4().hex
+    temp_dir = f"/tmp/upload_{temp_uuid}"
     os.makedirs(temp_dir, exist_ok=True)
-    zip_path = os.path.join(temp_dir, file.filename)
 
-    with open(zip_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if file and file.filename.endswith(".zip"):
+        zip_path = os.path.join(temp_dir, file.filename)
+        with open(zip_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+    elif files:
+        for f in files:
+            safe_name = f.filename.replace("/", "_").replace("\\", "_")
+            file_path = os.path.join(temp_dir, safe_name)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer)
 
     study_info = {
         "num_instances": 0,
@@ -74,6 +99,11 @@ async def upload_dicom_zip(
         "modality": None,
         "study_uid": None,
         "study_date": None,
+        "study_time": None,
+        "patient_age": None,
+        "patient_sex": None,
+        "body_part": None,
+        "institution": None,
     }
 
     try:
@@ -86,8 +116,14 @@ async def upload_dicom_zip(
                 if filename.endswith(".zip"):
                     continue
                 try:
-                    dcm = pydicom.dcmread(filepath, stop_before_pixels=True)
+                    dcm = pydicom.dcmread(filepath, stop_before_pixels=not anonymize)
                     study_info["num_instances"] += 1
+
+                    if anonymize:
+                        dcm.PatientName = "مريض مجهول الهوية"
+                        dcm.PatientID = f"ANON-{temp_uuid[:8]}"
+                        dcm.PatientBirthDate = ""
+                        dcm.InstitutionName = "CloudRad (Secured)"
 
                     if not study_info["patient_id"]:
                         study_info["patient_id"] = str(getattr(dcm, "PatientID", "UNKNOWN"))
@@ -96,26 +132,41 @@ async def upload_dicom_zip(
                         study_info["modality"] = str(getattr(dcm, "Modality", "UNKNOWN"))
                         study_info["study_uid"] = str(getattr(dcm, "StudyInstanceUID", "UNKNOWN"))
                         study_info["study_date"] = str(getattr(dcm, "StudyDate", ""))
+                        study_info["study_time"] = str(getattr(dcm, "StudyTime", ""))
+                        study_info["patient_age"] = str(getattr(dcm, "PatientAge", ""))
+                        study_info["patient_sex"] = str(getattr(dcm, "PatientSex", ""))
+                        study_info["body_part"] = str(getattr(dcm, "BodyPartExamined", ""))
+                        study_info["institution"] = str(getattr(dcm, "InstitutionName", ""))
 
                     study_info["series_uids"].add(str(getattr(dcm, "SeriesInstanceUID", "UNKNOWN")))
 
                     # Forward to Orthanc
-                    with open(filepath, "rb") as dcm_file:
-                        res = requests.post(
-                            f"{ORTHANC_URL}/instances",
-                            data=dcm_file.read(),
-                            headers={"Content-Type": "application/dicom"},
-                        )
+                    if anonymize:
+                        out = BytesIO()
+                        dcm.save_as(out)
+                        data_to_send = out.getvalue()
+                    else:
+                        with open(filepath, "rb") as dcm_file:
+                            data_to_send = dcm_file.read()
+
+                    res = requests.post(
+                        f"{ORTHANC_URL}/instances",
+                        data=data_to_send,
+                        headers={"Content-Type": "application/dicom"},
+                    )
                 except Exception as e:
-                    print(f"Failed to process {filename}: {e}")
+                    logger.warning(f"Failed to process {filename}: {e}")
 
         # Use the doctor's clinic
         clinic_id = current_doctor.clinic_id
 
-        # Check and create Patient in DB
+        # Check and create Patient in DB (filter by clinic_id too)
         patient = (
             db.query(models.Patient)
-            .filter(models.Patient.patient_id_number == study_info["patient_id"])
+            .filter(
+                models.Patient.patient_id_number == study_info["patient_id"],
+                models.Patient.clinic_id == clinic_id,
+            )
             .first()
         )
         if not patient:
@@ -132,6 +183,8 @@ async def upload_dicom_zip(
                 clinic_id=clinic_id,
                 patient_id_number=study_info["patient_id"],
                 full_name=study_info["patient_name"],
+                age=study_info["patient_age"],
+                gender=study_info["patient_sex"],
             )
             db.add(patient)
             db.commit()
@@ -150,6 +203,10 @@ async def upload_dicom_zip(
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],
+                study_date=study_info["study_date"],
+                study_time=study_info["study_time"],
+                body_part=study_info["body_part"],
+                institution_name=study_info["institution"],
             )
             db.add(study)
             db.commit()
@@ -157,5 +214,21 @@ async def upload_dicom_zip(
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info(f"Cleaned up temporary directory: {temp_dir}")
 
-    return {"message": "Upload successful", "study_id": study.id}
+    return {
+        "message": "Upload successful", 
+        "study_id": study.id,
+        "metadata": {
+            "patient_name": patient.full_name,
+            "patient_id": patient.patient_id_number,
+            "patient_age": patient.age,
+            "patient_gender": patient.gender,
+            "modality": study.modality,
+            "study_date": study.study_date,
+            "study_time": study.study_time,
+            "body_part": study.body_part,
+            "instances_count": study.instances_count,
+            "institution_name": study.institution_name
+        }
+    }

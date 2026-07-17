@@ -21,6 +21,7 @@ class LoginResponse(BaseModel):
     full_name: str
     email: str
     clinic_id: str | None = None
+    role: str
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -42,6 +43,7 @@ def login(req: LoginRequest, db: Session = Depends(database.get_db)):
         full_name=doctor.full_name,
         email=doctor.email,
         clinic_id=doctor.clinic_id,
+        role=doctor.role,
     )
 
 
@@ -52,4 +54,5 @@ def get_me(current_doctor: models.Doctor = Depends(auth.get_current_doctor)):
         "full_name": current_doctor.full_name,
         "email": current_doctor.email,
         "clinic_id": current_doctor.clinic_id,
+        "role": current_doctor.role,
     }

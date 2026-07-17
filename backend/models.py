@@ -44,6 +44,7 @@ class Patient(Base):
     patient_id_number = Column(String(100), nullable=False)
     full_name = Column(String(255), nullable=False)
     birth_date = Column(Date, nullable=True)
+    age = Column(String(20), nullable=True)
     gender = Column(String(10), nullable=True)
     phone = Column(String(20), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -62,6 +63,9 @@ class Study(Base):
     series_count = Column(Integer, default=1, server_default="1")
     instances_count = Column(Integer, default=0, server_default="0")
     study_date = Column(DateTime(timezone=True), nullable=True)
+    study_time = Column(String(50), nullable=True)
+    body_part = Column(String(100), nullable=True)
+    institution_name = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     patient = relationship("Patient", back_populates="studies")

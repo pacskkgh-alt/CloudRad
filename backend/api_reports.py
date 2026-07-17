@@ -2,10 +2,13 @@ import os
 import io
 import qrcode
 import tempfile
-from fastapi import APIRouter, Depends, HTTPException
+import bleach
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Optional
 import models, database, auth
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -14,10 +17,13 @@ from reportlab.lib.utils import simpleSplit
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
+ALLOWED_TAGS = ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'span', 'div']
+ALLOWED_ATTRS = {'span': ['style'], 'div': ['style'], 'p': ['style']}
+
 
 class ReportCreate(BaseModel):
     study_id: str
-    report_content: str
+    report_content: str = Field(..., min_length=1, max_length=100000)
     is_finalized: bool = False
 
 
@@ -25,18 +31,18 @@ class ReportCreate(BaseModel):
 def create_or_update_report(
     report_in: ReportCreate,
     db: Session = Depends(database.get_db),
-    current_doctor: models.Doctor = Depends(auth.get_current_doctor),
+    current_doctor: models.Doctor = Depends(auth.require_doctor),
 ):
     report = db.query(models.Report).filter(models.Report.study_id == report_in.study_id).first()
     if report:
-        report.report_content = report_in.report_content
+        report.report_content = bleach.clean(report_in.report_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS)
         report.is_finalized = report_in.is_finalized
         report.doctor_id = current_doctor.id
     else:
         report = models.Report(
             study_id=report_in.study_id,
             doctor_id=current_doctor.id,
-            report_content=report_in.report_content,
+            report_content=bleach.clean(report_in.report_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS),
             is_finalized=report_in.is_finalized,
         )
         db.add(report)
@@ -46,8 +52,44 @@ def create_or_update_report(
 
 
 @router.get("/{study_id}")
-def get_report(study_id: str, db: Session = Depends(database.get_db)):
-    """Public endpoint — used by patient portal via share links."""
+def get_report(
+    study_id: str,
+    request: Request,
+    share_token: Optional[str] = Query(None),
+    db: Session = Depends(database.get_db),
+):
+    """Accepts either JWT Bearer token (doctors) or share_token (patients)."""
+    is_authorized = False
+
+    # Try JWT auth from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            token_str = auth_header.split(" ", 1)[1]
+            doctor = auth.get_current_doctor.__wrapped__(token_str, db) if hasattr(auth.get_current_doctor, '__wrapped__') else None
+            # Simple JWT validation
+            from jose import jwt as jose_jwt
+            payload = jose_jwt.decode(token_str, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+            doctor_id = payload.get("sub")
+            if doctor_id:
+                doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
+                if doctor:
+                    is_authorized = True
+        except Exception:
+            pass
+
+    # Try share_token
+    if not is_authorized and share_token:
+        link = db.query(models.SharedLink).filter(models.SharedLink.token == share_token).first()
+        if link:
+            if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.now():
+                raise HTTPException(status_code=403, detail="Link expired")
+            if link.study.id == study_id:
+                is_authorized = True
+
+    if not is_authorized:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
     report = db.query(models.Report).filter(models.Report.study_id == study_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")

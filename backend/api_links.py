@@ -4,12 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from passlib.context import CryptContext
 import models, database, auth
 
 router = APIRouter(prefix="/api/links", tags=["Links"])
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class ShareLinkCreate(BaseModel):
@@ -28,7 +25,7 @@ def create_share_link(
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
     if link_in.passcode:
-        hashed_passcode = pwd_context.hash(link_in.passcode)
+        hashed_passcode = auth.pwd_context.hash(link_in.passcode)
     else:
         hashed_passcode = None
 
@@ -72,7 +69,7 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
     if link.passcode_hash:
         if not req.passcode:
             return {"requires_passcode": True}
-        if not pwd_context.verify(req.passcode, link.passcode_hash):
+        if not auth.pwd_context.verify(req.passcode, link.passcode_hash):
             raise HTTPException(status_code=401, detail="Incorrect passcode")
 
     study = link.study
@@ -81,4 +78,8 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
         "orthanc_study_uuid": study.orthanc_study_uuid,
         "allows_download": link.allows_download,
         "is_anonymized": link.is_anonymized,
+        "patient_name": study.patient.full_name if study.patient else "غير متوفر",
+        "patient_id_number": study.patient.patient_id_number if study.patient else "غير متوفر",
+        "modality": study.modality,
+        "study_date": study.study_date,
     }
