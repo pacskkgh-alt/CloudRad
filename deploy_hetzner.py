@@ -45,6 +45,7 @@ try:
         "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io curl",
         "mkdir -p ~/.docker/cli-plugins/ && curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose && chmod +x ~/.docker/cli-plugins/docker-compose",
         "cd /app && mv docker-compose.prod.yml docker-compose.yml",
+        "cd /app && docker compose down",
         "cd /app && docker compose up -d --remove-orphans"
     ]
     
