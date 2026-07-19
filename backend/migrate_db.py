@@ -16,6 +16,12 @@ def run_migration():
             print("Added new columns to studies")
         except Exception as e:
             print("Study alter error:", e)
+
+        try:
+            conn.execute(text("ALTER TABLE doctors ADD COLUMN is_active BOOLEAN DEFAULT TRUE NOT NULL;"))
+            print("Added 'is_active' column to doctors")
+        except Exception as e:
+            print("Doctor alter error:", e)
         conn.commit()
 
 if __name__ == "__main__":

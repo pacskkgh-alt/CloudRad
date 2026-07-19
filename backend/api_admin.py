@@ -32,7 +32,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     role: Optional[str] = None
-    clinic_id: Optional[str] = ""
+    clinic_id: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -53,7 +53,7 @@ def get_clinics(db: Session = Depends(database.get_db)):
 
 @router.post("/clinics", response_model=ClinicResponse)
 def create_clinic(req: ClinicCreate, db: Session = Depends(database.get_db)):
-    new_clinic = models.Clinic(**req.dict())
+    new_clinic = models.Clinic(**req.model_dump())
     db.add(new_clinic)
     db.commit()
     db.refresh(new_clinic)
@@ -70,7 +70,7 @@ def create_user(req: UserCreate, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=400, detail="البريد الإلكتروني مسجل مسبقاً")
     
     hashed_password = auth.hash_password(req.password)
-    user_data = req.dict(exclude={"password"})
+    user_data = req.model_dump(exclude={"password"})
     if not user_data.get("clinic_id"):
         user_data["clinic_id"] = None
         
@@ -86,13 +86,11 @@ def update_user(user_id: str, req: UserUpdate, db: Session = Depends(database.ge
     if not user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
     
-    if req.role:
+    if req.role is not None:
         user.role = req.role
-        
-    if req.clinic_id == "": # Empty means remove clinic
-        user.clinic_id = None
-    elif req.clinic_id is not None:
-        user.clinic_id = req.clinic_id
+
+    if req.clinic_id is not None:
+        user.clinic_id = req.clinic_id if req.clinic_id != "" else None
         
     db.commit()
     db.refresh(user)

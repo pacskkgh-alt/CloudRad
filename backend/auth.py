@@ -55,6 +55,11 @@ def get_current_doctor(
     doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
     if doctor is None:
         raise credentials_exception
+    if not doctor.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="تم تعطيل هذا الحساب. تواصل مع مدير النظام.",
+        )
     return doctor
 
 def check_role(allowed_roles: list[str]):

@@ -35,6 +35,12 @@ def login(req: LoginRequest, db: Session = Depends(database.get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if not getattr(doctor, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="تم تعطيل هذا الحساب. تواصل مع مدير النظام.",
+        )
+
     access_token = auth.create_access_token(data={"sub": doctor.id})
 
     return LoginResponse(

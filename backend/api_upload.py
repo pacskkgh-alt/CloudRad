@@ -112,11 +112,8 @@ async def upload_dicom_zip(
     }
 
     try:
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-
-        for root, _, files in os.walk(temp_dir):
-            for filename in files:
+        for root, _, file_list in os.walk(temp_dir):
+            for filename in file_list:
                 filepath = os.path.join(root, filename)
                 if filename.endswith(".zip"):
                     continue

@@ -1,8 +1,17 @@
+import os
 import paramiko
+
+host = os.getenv("DEPLOY_HOST", "167.233.227.144")
+user = os.getenv("DEPLOY_USER", "root")
+password = os.getenv("DEPLOY_PASSWORD", "hKmMgFjxWJW9H4d9KVvL")
+
+if not os.getenv("DEPLOY_PASSWORD"):
+    print("⚠️  Using default SSH credentials. Set DEPLOY_PASSWORD env var for production.")
+
 try:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('167.233.227.144', 22, 'root', 'hKmMgFjxWJW9H4d9KVvL')
+    ssh.connect(host, 22, user, password)
 
     py_script = """import sys
 import database
@@ -12,10 +21,18 @@ import auth
 db = next(database.get_db())
 created = []
 
+# Admin Account
+existing_admin = db.query(models.Doctor).filter(models.Doctor.email == 'admin@cloudrad.com').first()
+if not existing_admin:
+    hashed_password = auth.hash_password('CloudR@d!Admin2026')
+    admin = models.Doctor(full_name='System Admin', email='admin@cloudrad.com', password_hash=hashed_password, role='admin')
+    db.add(admin)
+    created.append('admin')
+
 # Doctor Account
 existing_doctor = db.query(models.Doctor).filter(models.Doctor.email == 'doctor@cloudrad.com').first()
 if not existing_doctor:
-    hashed_password = auth.hash_password('doctor123')
+    hashed_password = auth.hash_password('CloudR@d!Doc2026')
     doctor = models.Doctor(full_name='Dr. Test', email='doctor@cloudrad.com', password_hash=hashed_password, role='doctor')
     db.add(doctor)
     created.append('doctor')
@@ -23,7 +40,7 @@ if not existing_doctor:
 # Tech (User) Account
 existing_tech = db.query(models.Doctor).filter(models.Doctor.email == 'tech@cloudrad.com').first()
 if not existing_tech:
-    hashed_password = auth.hash_password('tech123')
+    hashed_password = auth.hash_password('CloudR@d!Tech2026')
     tech = models.Doctor(full_name='Mr. Tech', email='tech@cloudrad.com', password_hash=hashed_password, role='user')
     db.add(tech)
     created.append('tech')

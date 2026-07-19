@@ -1,11 +1,20 @@
 import paramiko
 import os
+import sys
 import time
+import logging
 
-host = "167.233.227.144"
-user = "root"
-password = "hKmMgFjxWJW9H4d9KVvL"
-port = 22
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+host = os.getenv("DEPLOY_HOST", "167.233.227.144")
+user = os.getenv("DEPLOY_USER", "root")
+password = os.getenv("DEPLOY_PASSWORD", "hKmMgFjxWJW9H4d9KVvL")
+port = int(os.getenv("DEPLOY_PORT", "22"))
+
+# Warn if using default credentials
+if not os.getenv("DEPLOY_PASSWORD"):
+    logger.warning("⚠️  Using default SSH credentials. Set DEPLOY_PASSWORD env var for production.")
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -65,7 +74,7 @@ try:
                 break
             try:
                 print(line.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding), end="")
-            except:
+            except Exception:
                 pass
             
         err = stderr.read().decode()

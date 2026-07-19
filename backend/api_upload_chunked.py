@@ -56,6 +56,12 @@ async def upload_chunk(
         shutil.copyfileobj(chunk.file, f)
         
     if chunkIndex == totalChunks - 1:
+        # Validate all chunks exist before assembly
+        missing = [i for i in range(totalChunks) if not os.path.exists(os.path.join(tmp_dir, f"chunk_{i}"))]
+        if missing:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail=f"Missing chunks: {missing}")
+
         # All chunks received, assemble
         assembled_zip_path = os.path.join(tmp_dir, "combined.zip")
         with open(assembled_zip_path, "wb") as out_file:
@@ -76,7 +82,9 @@ async def upload_chunk(
             "study_date": None,
             "study_time": None,
             "patient_age": None,
-            "patient_sex": "O"
+            "patient_sex": "O",
+            "body_part": None,
+            "institution_name": None
         }
         
         extracted_dir = os.path.join(tmp_dir, "extracted")
@@ -105,10 +113,15 @@ async def upload_chunk(
                             if study_date:
                                 # Keep raw string or format if needed
                                 study_info["study_date"] = str(study_date)
-                            
+
+                            study_time = getattr(dcm, "StudyTime", None)
+                            if study_time:
+                                study_info["study_time"] = str(study_time)
+
                             study_info["patient_age"] = str(getattr(dcm, "PatientAge", getattr(dcm, "PatientBirthDate", "")))
                             study_info["patient_sex"] = str(getattr(dcm, "PatientSex", "O"))
-                            
+                            study_info["body_part"] = str(getattr(dcm, "BodyPartExamined", ""))
+                            study_info["institution_name"] = str(getattr(dcm, "InstitutionName", ""))
                         study_info["series_uids"].add(str(getattr(dcm, "SeriesInstanceUID", "UNKNOWN")))
                         
                         # Forward to Orthanc
@@ -177,7 +190,10 @@ async def upload_chunk(
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],
-                study_date=parsed_dt
+                study_date=parsed_dt,
+                study_time=study_info.get("study_time"),
+                body_part=study_info.get("body_part"),
+                institution_name=study_info.get("institution_name"),
             )
             db.add(study)
             db.commit()
@@ -219,7 +235,12 @@ def generate_share_link(
     study = db.query(models.Study).filter(models.Study.id == req.study_id).first()
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
-        
+
+    # Ownership check: doctor must belong to the same clinic as the patient
+    if study.patient and study.patient.clinic_id != current_doctor.clinic_id:
+        if current_doctor.role != "admin":
+            raise HTTPException(status_code=403, detail="ليس لديك صلاحية مشاركة هذه الدراسة")
+
     expiry_date = datetime.now() + timedelta(days=req.expiry_days)
     token = uuid.uuid4().hex
     

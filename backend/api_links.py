@@ -11,7 +11,6 @@ router = APIRouter(prefix="/api/links", tags=["Links"])
 
 class ShareLinkCreate(BaseModel):
     study_id: str
-    doctor_id: str
     duration_days: Optional[int] = None
     passcode: Optional[str] = None
     allows_download: bool = True
