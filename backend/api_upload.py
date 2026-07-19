@@ -6,6 +6,7 @@ import logging
 import pydicom
 import requests
 from io import BytesIO
+from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Request
 from sqlalchemy.orm import Session
 from typing import List
@@ -170,6 +171,9 @@ async def upload_dicom_zip(
         # Use the doctor's clinic
         clinic_id = current_doctor.clinic_id
 
+        if not study_info["patient_id"]:
+            raise HTTPException(status_code=400, detail="No valid DICOM files found in payload.")
+
         # Check and create Patient in DB (filter by clinic_id too)
         patient = (
             db.query(models.Patient)
@@ -202,6 +206,14 @@ async def upload_dicom_zip(
 
         # Check and create Study in DB
         actual_orthanc_uuid = study_info.get("orthanc_study_uuid") or study_info["study_uid"]
+        
+        parsed_study_date = None
+        if study_info["study_date"] and len(study_info["study_date"]) == 8:
+            try:
+                parsed_study_date = datetime.strptime(study_info["study_date"], "%Y%m%d")
+            except Exception:
+                pass
+                
         study = (
             db.query(models.Study)
             .filter(models.Study.orthanc_study_uuid == actual_orthanc_uuid)
@@ -214,7 +226,7 @@ async def upload_dicom_zip(
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],
-                study_date=study_info["study_date"],
+                study_date=parsed_study_date,
                 study_time=study_info["study_time"],
                 body_part=study_info["body_part"],
                 institution_name=study_info["institution"],
