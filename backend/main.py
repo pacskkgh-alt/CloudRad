@@ -24,7 +24,17 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS — use CORS_ORIGINS env var in production
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+_raw_origins = os.getenv("CORS_ORIGINS", "*")
+if _raw_origins.strip() == "*":
+    cors_origins = ["*"]
+else:
+    cors_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    # Always ensure the Vercel frontend is allowed
+    vercel_url = os.getenv("FRONTEND_URL", "")
+    if vercel_url and vercel_url not in cors_origins:
+        cors_origins.append(vercel_url)
+
+logger.info(f"CORS origins configured: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

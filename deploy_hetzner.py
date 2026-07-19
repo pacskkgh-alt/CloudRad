@@ -46,6 +46,8 @@ try:
         "mkdir -p ~/.docker/cli-plugins/ && curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose && chmod +x ~/.docker/cli-plugins/docker-compose",
         "cd /app && mv docker-compose.prod.yml docker-compose.yml",
         "cd /app && docker compose down",
+        "docker builder prune -a -f",
+        "cd /app && docker compose build --no-cache",
         "cd /app && docker compose up -d --remove-orphans"
     ]
     

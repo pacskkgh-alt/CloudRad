@@ -59,7 +59,7 @@ services:
       - POSTGRES_PASSWORD=cloudrad_secure_prod_password
       - ORTHANC_URL=http://orthanc:8042
       - JWT_SECRET=f7e4b9d8a1c6e2f5d9c2a6b8e3f4c1a7d5b8e9c4f2a1d6b3e7c5f8a9d2c1b4e6
-      - CORS_ORIGINS=*
+      - CORS_ORIGINS=https://cloudrad-mvp-frontend.vercel.app,http://localhost:5173,http://localhost:3000
       - FRONTEND_URL=https://cloudrad-mvp-frontend.vercel.app
     depends_on:
       - db
