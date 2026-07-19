@@ -4,7 +4,7 @@ import zipfile
 import uuid
 import logging
 from datetime import datetime, timedelta
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import pydicom
 import requests
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chunked Upload & Share"])
 
 ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
+MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500 MB
 
 def clean_patient_name(name_obj) -> str:
     if not name_obj:
@@ -30,6 +31,7 @@ def clean_patient_name(name_obj) -> str:
 
 @router.post("/upload-chunk")
 async def upload_chunk(
+    request: Request,
     chunk: UploadFile = File(...),
     chunkIndex: int = Form(...),
     totalChunks: int = Form(...),
@@ -40,6 +42,11 @@ async def upload_chunk(
     """
     Accepts a file chunk. Once all chunks are received, reassembles and processes the DICOM data.
     """
+    # Enforce basic payload limit per request header if available
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="Payload Too Large")
+
     tmp_dir = f"/tmp/{uploadId}"
     os.makedirs(tmp_dir, exist_ok=True)
     

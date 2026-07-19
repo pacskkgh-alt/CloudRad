@@ -6,7 +6,7 @@ import logging
 import pydicom
 import requests
 from io import BytesIO
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Request
 from sqlalchemy.orm import Session
 from typing import List
 import models, database, auth
@@ -65,12 +65,17 @@ def get_studies(
 
 @router.post("/upload")
 async def upload_dicom_zip(
+    request: Request,
     file: UploadFile = File(None),
     files: list[UploadFile] = File(None),
     anonymize: bool = Form(False),
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="Payload Too Large. Limit is 500MB.")
+
     if not file and not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
