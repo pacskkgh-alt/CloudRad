@@ -72,6 +72,10 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
         if not auth.pwd_context.verify(req.passcode, link.passcode_hash):
             raise HTTPException(status_code=401, detail="Incorrect passcode")
 
+    # Increment view counter
+    link.views_count += 1
+    db.commit()
+
     study = link.study
     return {
         "study_id": study.id,

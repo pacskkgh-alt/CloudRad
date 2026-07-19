@@ -113,7 +113,7 @@ def delete_user(user_id: str, db: Session = Depends(database.get_db)):
     db.commit()
     return {"message": "تم حذف المستخدم بنجاح"}
 
-@router.put("/users/{user_id}/toggle-status", response_model=UserResponse)
+@router.put("/users/{user_id}/toggle", response_model=UserResponse)
 def toggle_user_status(user_id: str, db: Session = Depends(database.get_db)):
     user = db.query(models.Doctor).filter(models.Doctor.id == user_id).first()
     if not user:
@@ -132,7 +132,7 @@ def toggle_user_status(user_id: str, db: Session = Depends(database.get_db)):
     db.refresh(user)
     return user
 
-@router.get("/links")
+@router.get("/shares")
 def get_global_links(db: Session = Depends(database.get_db)):
     links = db.query(models.SharedLink).all()
     result = []
@@ -151,13 +151,14 @@ def get_global_links(db: Session = Depends(database.get_db)):
             "study_id": link.study_id,
             "patient_name": patient_name,
             "doctor_name": doctor_name,
+            "views_count": link.views_count,
             "expires_at": str(link.expires_at) if link.expires_at else None,
             "is_active": is_active
         })
         
     return result
 
-@router.put("/links/{link_id}/revoke")
+@router.put("/shares/{link_id}/revoke")
 def revoke_link(link_id: str, db: Session = Depends(database.get_db)):
     link = db.query(models.SharedLink).filter(models.SharedLink.id == link_id).first()
     if not link:
