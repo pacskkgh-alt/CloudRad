@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 import database
 import models
@@ -39,6 +40,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     clinic_id: Optional[str] = None
+    is_active: bool = True
     
     class Config:
         from_attributes = True
@@ -110,3 +112,58 @@ def delete_user(user_id: str, db: Session = Depends(database.get_db)):
     db.delete(user)
     db.commit()
     return {"message": "تم حذف المستخدم بنجاح"}
+
+@router.put("/users/{user_id}/toggle-status", response_model=UserResponse)
+def toggle_user_status(user_id: str, db: Session = Depends(database.get_db)):
+    user = db.query(models.Doctor).filter(models.Doctor.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+        
+    if user.role == "admin" and user.is_active:
+        active_admins = db.query(models.Doctor).filter(
+            models.Doctor.role == "admin", 
+            models.Doctor.is_active == True
+        ).count()
+        if active_admins <= 1:
+            raise HTTPException(status_code=400, detail="لا يمكن تعطيل مدير النظام الوحيد النشط")
+            
+    user.is_active = not user.is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+@router.get("/links")
+def get_global_links(db: Session = Depends(database.get_db)):
+    links = db.query(models.SharedLink).all()
+    result = []
+    
+    for link in links:
+        is_active = True
+        if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.now():
+            is_active = False
+
+        doctor_name = link.doctor.full_name if link.doctor else "Unknown"
+        patient_name = link.study.patient.full_name if (link.study and link.study.patient) else "Unknown"
+
+        result.append({
+            "id": link.id,
+            "token": link.token,
+            "study_id": link.study_id,
+            "patient_name": patient_name,
+            "doctor_name": doctor_name,
+            "expires_at": str(link.expires_at) if link.expires_at else None,
+            "is_active": is_active
+        })
+        
+    return result
+
+@router.put("/links/{link_id}/revoke")
+def revoke_link(link_id: str, db: Session = Depends(database.get_db)):
+    link = db.query(models.SharedLink).filter(models.SharedLink.id == link_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+        
+    link.expires_at = datetime.now()
+    db.commit()
+    return {"message": "Link revoked successfully"}
+

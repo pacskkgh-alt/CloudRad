@@ -28,6 +28,7 @@ class Doctor(Base):
     password_hash = Column(Text, nullable=False)
     signature_url = Column(Text, nullable=True)
     role = Column(String(50), default="doctor", server_default="doctor")
+    is_active = Column(Boolean, default=True, server_default="true")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     clinic = relationship("Clinic", back_populates="doctors")
