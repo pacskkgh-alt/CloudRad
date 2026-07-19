@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from database import engine, Base
 import models
-import api_upload, api_reports, api_links, api_auth, api_admin
+import api_upload, api_reports, api_links, api_auth, api_admin, api_upload_chunked
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -39,7 +39,7 @@ app.include_router(api_upload.router)
 app.include_router(api_reports.router)
 app.include_router(api_links.router)
 app.include_router(api_admin.router)
-
+app.include_router(api_upload_chunked.router)
 
 # Global exception handler
 @app.exception_handler(Exception)

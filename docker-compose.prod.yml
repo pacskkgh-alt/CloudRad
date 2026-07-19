@@ -12,6 +12,8 @@ services:
       - certs:/etc/nginx/certs:ro
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
+    networks:
+      - cloudrad_prod_net
     restart: always
 
   letsencrypt:
@@ -27,6 +29,8 @@ services:
       - NGINX_PROXY_CONTAINER=nginx-proxy
     depends_on:
       - nginx-proxy
+    networks:
+      - cloudrad_prod_net
     restart: always
 
   db:
@@ -38,6 +42,8 @@ services:
       POSTGRES_DB: cloudrad_db
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - cloudrad_prod_net
     restart: always
 
   backend:
@@ -53,10 +59,12 @@ services:
       - POSTGRES_PASSWORD=cloudrad_secure_prod_password
       - ORTHANC_URL=http://orthanc:8042
       - JWT_SECRET=f7e4b9d8a1c6e2f5d9c2a6b8e3f4c1a7d5b8e9c4f2a1d6b3e7c5f8a9d2c1b4e6
-      - CORS_ORIGINS=https://cloudrad-mvp-frontend.vercel.app,http://localhost:5173
+      - CORS_ORIGINS=*
       - FRONTEND_URL=https://cloudrad-mvp-frontend.vercel.app
     depends_on:
       - db
+    networks:
+      - cloudrad_prod_net
     restart: always
 
   orthanc:
@@ -83,6 +91,8 @@ services:
       - db
     volumes:
       - orthanc_prod_data:/var/lib/orthanc/db
+    networks:
+      - cloudrad_prod_net
     restart: always
 
 volumes:
@@ -91,3 +101,7 @@ volumes:
   html:
   postgres_prod_data:
   orthanc_prod_data:
+
+networks:
+  cloudrad_prod_net:
+    driver: bridge
