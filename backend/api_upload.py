@@ -109,6 +109,7 @@ async def upload_dicom_zip(
         "patient_sex": None,
         "body_part": None,
         "institution": None,
+        "orthanc_study_uuid": None,
     }
 
     try:
@@ -156,6 +157,13 @@ async def upload_dicom_zip(
                         data=data_to_send,
                         headers={"Content-Type": "application/dicom"},
                     )
+                    if res.status_code == 200:
+                        try:
+                            resp_json = res.json()
+                            if "ParentStudy" in resp_json:
+                                study_info["orthanc_study_uuid"] = resp_json["ParentStudy"]
+                        except Exception:
+                            pass
                 except Exception as e:
                     logger.warning(f"Failed to process {filename}: {e}")
 
@@ -193,15 +201,16 @@ async def upload_dicom_zip(
             db.refresh(patient)
 
         # Check and create Study in DB
+        actual_orthanc_uuid = study_info.get("orthanc_study_uuid") or study_info["study_uid"]
         study = (
             db.query(models.Study)
-            .filter(models.Study.orthanc_study_uuid == study_info["study_uid"])
+            .filter(models.Study.orthanc_study_uuid == actual_orthanc_uuid)
             .first()
         )
         if not study:
             study = models.Study(
                 patient_id=patient.id,
-                orthanc_study_uuid=study_info["study_uid"],
+                orthanc_study_uuid=actual_orthanc_uuid,
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],
