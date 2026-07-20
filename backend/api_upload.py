@@ -60,6 +60,35 @@ def get_studies(
     return results
 
 
+@router.delete("/studies/{study_id}")
+def delete_study(
+    study_id: str,
+    db: Session = Depends(database.get_db),
+    current_doctor: models.Doctor = Depends(auth.get_current_doctor),
+):
+    """Securely deletes a study from DB and Orthanc PACS."""
+    study = db.query(models.Study).filter(models.Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    # Access control: Admin or Doctor belonging to the same clinic
+    if current_doctor.role != "admin" and study.patient.clinic_id != current_doctor.clinic_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this study")
+
+    # Attempt to purge from Orthanc PACS
+    try:
+        res = requests.delete(f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}")
+        if res.status_code not in [200, 404]:
+            logger.warning(f"Failed to delete study from Orthanc: {res.status_code}")
+    except Exception as e:
+        logger.warning(f"Orthanc connection failed during delete: {e}")
+
+    # Delete from DB
+    db.delete(study)
+    db.commit()
+    return {"message": "Study deleted successfully"}
+
+
 @router.post("/upload")
 async def upload_dicom_zip(
     request: Request,
@@ -80,13 +109,20 @@ async def upload_dicom_zip(
     temp_dir = f"/tmp/upload_{temp_uuid}"
     os.makedirs(temp_dir, exist_ok=True)
 
-    if file and file.filename.endswith(".zip"):
-        zip_path = os.path.join(temp_dir, file.filename)
-        with open(zip_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-    elif files:
+    if file:
+        if file.filename.endswith(".zip"):
+            zip_path = os.path.join(temp_dir, file.filename)
+            with open(zip_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(temp_dir)
+        else:
+            safe_name = file.filename.replace("/", "_").replace("\\", "_")
+            file_path = os.path.join(temp_dir, safe_name)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+                
+    if files:
         for f in files:
             safe_name = f.filename.replace("/", "_").replace("\\", "_")
             file_path = os.path.join(temp_dir, safe_name)
