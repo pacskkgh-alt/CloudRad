@@ -77,7 +77,7 @@ services:
       - cloudrad_prod_net
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -113,7 +113,7 @@ services:
       - cloudrad_prod_net
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8042/system"]
+      test: ["CMD", "curl", "-f", "-u", "${ORTHANC_USER}:${ORTHANC_PASSWORD}", "http://localhost:8042/system"]
       interval: 15s
       timeout: 5s
       retries: 3
