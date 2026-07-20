@@ -189,6 +189,7 @@ async def upload_dicom_zip(
                         f"{ORTHANC_URL}/instances",
                         data=data_to_send,
                         headers={"Content-Type": "application/dicom"},
+                        auth=requests.auth.HTTPBasicAuth("cloudrad_pacs", "CloudR4d_P4cs_Secur3!")
                     )
                     if res.status_code == 200:
                         try:
