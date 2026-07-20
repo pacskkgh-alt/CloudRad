@@ -73,9 +73,23 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
 
     # Increment view counter
     link.views_count += 1
-    db.commit()
 
     study = link.study
+    
+    # Query Orthanc for Instances to provide previews
+    instance_ids = []
+    try:
+        import os
+        import requests
+        ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
+        ores = requests.get(f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}/instances")
+        if ores.status_code == 200:
+            instance_ids = [inst["ID"] for inst in ores.json()]
+    except Exception as e:
+        print("Failed to fetch instances from Orthanc:", e)
+
+    db.commit()
+
     return {
         "study_id": study.id,
         "orthanc_study_uuid": study.orthanc_study_uuid,
@@ -85,4 +99,5 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
         "patient_id_number": study.patient.patient_id_number if study.patient else "غير متوفر",
         "modality": study.modality,
         "study_date": study.study_date,
+        "instances": instance_ids,
     }
