@@ -14,6 +14,7 @@ services:
       - certs:/etc/nginx/certs:ro
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
+      - ./pacs_location.conf:/etc/nginx/vhost.d/pacs.167-233-227-144.nip.io_location:ro
     networks:
       - cloudrad_prod_net
     restart: always
