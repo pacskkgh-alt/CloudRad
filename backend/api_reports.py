@@ -3,7 +3,7 @@ import io
 import qrcode
 import tempfile
 import bleach
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -82,7 +82,7 @@ def get_report(
     if not is_authorized and share_token:
         link = db.query(models.SharedLink).filter(models.SharedLink.token == share_token).first()
         if link:
-            if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.now():
+            if link.expires_at and link.expires_at < datetime.now(timezone.utc):
                 raise HTTPException(status_code=403, detail="Link expired")
             if link.study.id == study_id:
                 is_authorized = True

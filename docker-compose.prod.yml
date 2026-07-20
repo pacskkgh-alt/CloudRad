@@ -7,6 +7,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - HTTPS_METHOD=redirect
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - certs:/etc/nginx/certs:ro
@@ -36,64 +38,85 @@ services:
   db:
     image: postgres:15
     container_name: cloudrad_postgres_prod
+    env_file: .env
     environment:
-      POSTGRES_USER: cloudrad_admin
-      POSTGRES_PASSWORD: cloudrad_secure_prod_password
-      POSTGRES_DB: cloudrad_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     networks:
       - cloudrad_prod_net
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
     container_name: cloudrad_fastapi_prod
+    env_file: .env
     environment:
       - VIRTUAL_HOST=api.167-233-227-144.nip.io
       - LETSENCRYPT_HOST=api.167-233-227-144.nip.io
       - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudrad_db
-      - POSTGRES_USER=cloudrad_admin
-      - POSTGRES_PASSWORD=cloudrad_secure_prod_password
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - ORTHANC_URL=http://orthanc:8042
-      - JWT_SECRET=f7e4b9d8a1c6e2f5d9c2a6b8e3f4c1a7d5b8e9c4f2a1d6b3e7c5f8a9d2c1b4e6
-      - CORS_ORIGINS=https://cloudrad-mvp-frontend.vercel.app,http://localhost:5173,http://localhost:3000
-      - FRONTEND_URL=https://cloudrad-mvp-frontend.vercel.app
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - FRONTEND_URL=${FRONTEND_URL}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - cloudrad_prod_net
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   orthanc:
     image: osimis/orthanc:21.2.0
     container_name: cloudrad_orthanc_prod
+    env_file: .env
     environment:
       - VIRTUAL_HOST=pacs.167-233-227-144.nip.io
       - LETSENCRYPT_HOST=pacs.167-233-227-144.nip.io
       - VIRTUAL_PORT=8042
       - ORTHANC_NAME=CloudRad Production PACS
       - ORTHANC__POSTGRESQL__HOST=db
-      - ORTHANC__POSTGRESQL__PORT=5432
-      - ORTHANC__POSTGRESQL__DATABASE=cloudrad_db
-      - ORTHANC__POSTGRESQL__USERNAME=cloudrad_admin
-      - ORTHANC__POSTGRESQL__PASSWORD=cloudrad_secure_prod_password
+      - ORTHANC__POSTGRESQL__PORT=${POSTGRES_PORT}
+      - ORTHANC__POSTGRESQL__DATABASE=${POSTGRES_DB}
+      - ORTHANC__POSTGRESQL__USERNAME=${POSTGRES_USER}
+      - ORTHANC__POSTGRESQL__PASSWORD=${POSTGRES_PASSWORD}
       - OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED=true
       - OHIF_PLUGIN_ENABLED=true
       - DICOM_WEB_PLUGIN_ENABLED=true
       - POSTGRESQL_PLUGIN_ENABLED=true
-      - ORTHANC__AUTHENTICATION_ENABLED=false
-      - ORTHANC__CORS_ALLOW_ORIGIN=*
+      - ORTHANC__AUTHENTICATION_ENABLED=true
+      - ORTHANC__REGISTERED_USERS={"${ORTHANC_USER}": "${ORTHANC_PASSWORD}"}
+      - ORTHANC__CORS_ALLOW_ORIGIN=${FRONTEND_URL}
       - ORTHANC__CORS_ALLOW_CREDENTIALS=true
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - orthanc_prod_data:/var/lib/orthanc/db
     networks:
       - cloudrad_prod_net
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8042/system"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
 volumes:
   certs:

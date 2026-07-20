@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -30,7 +30,7 @@ def create_share_link(
 
     expires = None
     if link_in.duration_days:
-        expires = datetime.now() + timedelta(days=link_in.duration_days)
+        expires = datetime.now(timezone.utc) + timedelta(days=link_in.duration_days)
 
     token = str(uuid.uuid4().hex)
 
@@ -62,7 +62,7 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
     if not link:
         raise HTTPException(status_code=404, detail="Invalid link")
 
-    if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.now():
+    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=403, detail="Link expired")
 
     if link.passcode_hash:

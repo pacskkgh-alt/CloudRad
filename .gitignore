@@ -40,3 +40,6 @@ dummy.dcm
 
 # Logs
 *.log
+
+# Misc payloads
+*.b64

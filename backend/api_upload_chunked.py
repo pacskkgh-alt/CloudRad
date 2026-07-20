@@ -3,7 +3,7 @@ import shutil
 import zipfile
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import pydicom
@@ -241,7 +241,7 @@ def generate_share_link(
         if current_doctor.role != "admin":
             raise HTTPException(status_code=403, detail="ليس لديك صلاحية مشاركة هذه الدراسة")
 
-    expiry_date = datetime.now() + timedelta(days=req.expiry_days)
+    expiry_date = datetime.now(timezone.utc) + timedelta(days=req.expiry_days)
     token = uuid.uuid4().hex
     
     link = models.SharedLink(

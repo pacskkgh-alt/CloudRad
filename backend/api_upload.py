@@ -26,21 +26,17 @@ def get_studies(
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
-    """Return studies based on role."""
-    if current_doctor.role == "admin":
-        patients = db.query(models.Patient).all()
-    else:
-        patients = (
-            db.query(models.Patient)
-            .filter(models.Patient.clinic_id == current_doctor.clinic_id)
-            .all()
-        )
-    patient_ids = [p.id for p in patients]
+    """Return studies based on role. Uses JOIN for efficiency."""
+    query = (
+        db.query(models.Study)
+        .join(models.Patient, models.Study.patient_id == models.Patient.id)
+    )
+
+    if current_doctor.role != "admin":
+        query = query.filter(models.Patient.clinic_id == current_doctor.clinic_id)
 
     studies = (
-        db.query(models.Study)
-        .filter(models.Study.patient_id.in_(patient_ids))
-        .order_by(models.Study.created_at.desc())
+        query.order_by(models.Study.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()

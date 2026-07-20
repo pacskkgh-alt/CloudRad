@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 
 import database
 import models
@@ -137,7 +137,7 @@ def get_global_links(db: Session = Depends(database.get_db)):
     
     for link in links:
         is_active = True
-        if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.now():
+        if link.expires_at and link.expires_at < datetime.now(timezone.utc):
             is_active = False
 
         doctor_name = link.doctor.full_name if link.doctor else "Unknown"
@@ -162,7 +162,7 @@ def revoke_link(link_id: str, db: Session = Depends(database.get_db)):
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
         
-    link.expires_at = datetime.now()
+    link.expires_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Link revoked successfully"}
 

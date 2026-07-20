@@ -15,6 +15,11 @@ services:
     networks:
       - cloudrad_net
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudrad_admin -d cloudrad_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   orthanc:
     image: osimis/orthanc
@@ -44,6 +49,11 @@ services:
     networks:
       - cloudrad_net
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8042/system"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   backend:
     build: ./backend
@@ -61,11 +71,18 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - orthanc
+      db:
+        condition: service_healthy
+      orthanc:
+        condition: service_healthy
     networks:
       - cloudrad_net
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
   frontend:
     image: node:20
