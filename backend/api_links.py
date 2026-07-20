@@ -82,9 +82,13 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
         import os
         import requests
         ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
-        ores = requests.get(f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}/instances")
+        # Ensure Basic Authentication matches health check and upload methods
+        auth = requests.auth.HTTPBasicAuth("cloudrad_pacs", "CloudR4d_P4cs_Secur3!")
+        ores = requests.get(f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}/instances", auth=auth)
         if ores.status_code == 200:
             instance_ids = [inst["ID"] for inst in ores.json()]
+        else:
+            print(f"Orthanc returned {ores.status_code}: {ores.text}")
     except Exception as e:
         print("Failed to fetch instances from Orthanc:", e)
 
