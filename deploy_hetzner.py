@@ -1,4 +1,4 @@
-import paramiko
+﻿import paramiko
 import os
 import sys
 import time
@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-host = os.getenv("DEPLOY_HOST", "167.233.227.144")
+host = os.getenv("DEPLOY_HOST", "165.227.89.199")
 user = os.getenv("DEPLOY_USER", "root")
 password = os.getenv("DEPLOY_PASSWORD", "hKmMgFjxWJW9H4d9KVvL")
 port = int(os.getenv("DEPLOY_PORT", "22"))

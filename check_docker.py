@@ -1,8 +1,8 @@
-import paramiko
+﻿import paramiko
 try:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('167.233.227.144', 22, 'root', 'hKmMgFjxWJW9H4d9KVvL')
+    ssh.connect('165.227.89.199', 22, 'root', 'hKmMgFjxWJW9H4d9KVvL')
 
     py_script = """import sys
 import database

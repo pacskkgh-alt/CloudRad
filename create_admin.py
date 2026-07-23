@@ -1,6 +1,6 @@
-import paramiko
+﻿import paramiko
 
-host = "167.233.227.144"
+host = "165.227.89.199"
 user = "root"
 port = 22
 

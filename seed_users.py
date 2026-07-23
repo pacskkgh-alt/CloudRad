@@ -1,7 +1,7 @@
-import os
+﻿import os
 import paramiko
 
-host = os.getenv("DEPLOY_HOST", "167.233.227.144")
+host = os.getenv("DEPLOY_HOST", "165.227.89.199")
 user = os.getenv("DEPLOY_USER", "root")
 password = os.getenv("DEPLOY_PASSWORD", "hKmMgFjxWJW9H4d9KVvL")
 

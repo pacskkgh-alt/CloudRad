@@ -1,7 +1,7 @@
-import paramiko
+﻿import paramiko
 import time
 
-host = "167.233.227.144"
+host = "165.227.89.199"
 user = "root"
 old_pass = "ugLd4fcmFwRfxCWfuVpx"
 new_pass = "CloudRad_Prod_Pwd_2026!."

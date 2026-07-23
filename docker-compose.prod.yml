@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   nginx-proxy:
@@ -14,7 +14,7 @@ services:
       - certs:/etc/nginx/certs:ro
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
-      - ./pacs_location.conf:/etc/nginx/vhost.d/pacs.167-233-227-144.nip.io_location:ro
+      - ./pacs_location.conf:/etc/nginx/vhost.d/pacs.165-227-89-199.nip.io_location:ro
     networks:
       - cloudrad_prod_net
     restart: always
@@ -28,7 +28,7 @@ services:
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
     environment:
-      - DEFAULT_EMAIL=admin@167-233-227-144.nip.io
+      - DEFAULT_EMAIL=admin@165-227-89-199.nip.io
       - NGINX_PROXY_CONTAINER=nginx-proxy
     depends_on:
       - nginx-proxy
@@ -60,8 +60,8 @@ services:
     container_name: cloudrad_fastapi_prod
     env_file: .env
     environment:
-      - VIRTUAL_HOST=api.167-233-227-144.nip.io
-      - LETSENCRYPT_HOST=api.167-233-227-144.nip.io
+      - VIRTUAL_HOST=api.165-227-89-199.nip.io
+      - LETSENCRYPT_HOST=api.165-227-89-199.nip.io
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -88,8 +88,8 @@ services:
     container_name: cloudrad_orthanc_prod
     env_file: .env
     environment:
-      - VIRTUAL_HOST=pacs.167-233-227-144.nip.io
-      - LETSENCRYPT_HOST=pacs.167-233-227-144.nip.io
+      - VIRTUAL_HOST=pacs.165-227-89-199.nip.io
+      - LETSENCRYPT_HOST=pacs.165-227-89-199.nip.io
       - VIRTUAL_PORT=8042
       - ORTHANC_NAME=CloudRad Production PACS
       - ORTHANC__POSTGRESQL__HOST=db
