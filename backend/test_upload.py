@@ -1,4 +1,4 @@
-﻿import requests
+import requests
 from database import SessionLocal
 import models
 from auth import create_access_token
@@ -6,7 +6,7 @@ import os
 
 db = SessionLocal()
 doc = db.query(models.Doctor).filter_by(email="tech@cloudrad.com").first()
-token = create_access_token({"sub": doc.email, "role": doc.role})
+token = create_access_token({"sub": doc.id})
 
 with open("dummy.zip", "wb") as f:
     f.write(b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")

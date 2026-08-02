@@ -1,4 +1,4 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   nginx-proxy:
@@ -15,6 +15,7 @@ services:
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
       - ./pacs_location.conf:/etc/nginx/vhost.d/pacs.165-227-89-199.nip.io_location:ro
+      - ./client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf:ro
     networks:
       - cloudrad_prod_net
     restart: always
@@ -74,6 +75,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
     networks:
       - cloudrad_prod_net
     restart: always

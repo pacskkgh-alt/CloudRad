@@ -14,13 +14,11 @@ import models
 import database
 import auth
 from pydantic import BaseModel
+from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD, MAX_UPLOAD_SIZE
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["Chunked Upload & Share"])
-
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
-MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500 MB
 
 def clean_patient_name(name_obj) -> str:
     if not name_obj:
@@ -130,6 +128,7 @@ async def upload_chunk(
                                 f"{ORTHANC_URL}/instances",
                                 data=dicom_payload.read(),
                                 headers={"Content-Type": "application/dicom"},
+                                auth=requests.auth.HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD),
                             )
                             if res.status_code >= 400:
                                 logger.warning(f"Orthanc rejected instance {file_name}: {res.status_code}")

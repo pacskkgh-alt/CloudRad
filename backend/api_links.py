@@ -1,10 +1,17 @@
 import uuid
+import os
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import requests
+import requests.auth
 import models, database, auth
+from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/links", tags=["Links"])
 
@@ -79,18 +86,17 @@ def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(databa
     # Query Orthanc for Instances to provide previews
     instance_ids = []
     try:
-        import os
-        import requests
-        ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
-        # Ensure Basic Authentication matches health check and upload methods
-        auth = requests.auth.HTTPBasicAuth("cloudrad_pacs", "CloudR4d_P4cs_Secur3!")
-        ores = requests.get(f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}/instances", auth=auth)
+        orthanc_auth = requests.auth.HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD)
+        ores = requests.get(
+            f"{ORTHANC_URL}/studies/{study.orthanc_study_uuid}/instances",
+            auth=orthanc_auth,
+        )
         if ores.status_code == 200:
             instance_ids = [inst["ID"] for inst in ores.json()]
         else:
-            print(f"Orthanc returned {ores.status_code}: {ores.text}")
+            logger.warning(f"Orthanc returned {ores.status_code}: {ores.text}")
     except Exception as e:
-        print("Failed to fetch instances from Orthanc:", e)
+        logger.warning(f"Failed to fetch instances from Orthanc: {e}")
 
     db.commit()
 

@@ -11,12 +11,11 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, R
 from sqlalchemy.orm import Session
 from typing import List
 import models, database, auth
+from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD, MAX_UPLOAD_SIZE
 
 logger = logging.getLogger(__name__)
-MAX_UPLOAD_SIZE = 500 * 1024 * 1024  # 500 MB
 
 router = APIRouter(prefix="/api", tags=["Upload & Studies"])
-ORTHANC_URL = os.getenv("ORTHANC_URL", "http://cloudrad_orthanc:8042")
 
 
 @router.get("/studies")
@@ -92,15 +91,21 @@ def delete_study(
 @router.post("/upload")
 async def upload_dicom_zip(
     request: Request,
-    file: UploadFile = File(None),
-    files: list[UploadFile] = File(None),
-    anonymize: bool = Form(False),
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_UPLOAD_SIZE:
-        raise HTTPException(status_code=413, detail="Payload Too Large. Limit is 500MB.")
+        raise HTTPException(status_code=413, detail="Payload Too Large. Limit is 2GB.")
+
+    try:
+        form = await request.form(max_files=100000, max_fields=100000)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    anonymize = form.get("anonymize") == "true" or form.get("anonymize") is True
+    file = form.get("file")
+    files = form.getlist("files")
 
     if not file and not files:
         raise HTTPException(status_code=400, detail="No files provided")
@@ -108,22 +113,28 @@ async def upload_dicom_zip(
     temp_uuid = uuid.uuid4().hex
     temp_dir = f"/tmp/upload_{temp_uuid}"
     os.makedirs(temp_dir, exist_ok=True)
-
+    logger.debug(f"upload_dicom_zip called. file={file}, len(files)={len(files) if files else 'None'}")
+    all_files = []
     if file:
-        if file.filename.endswith(".zip"):
-            zip_path = os.path.join(temp_dir, file.filename)
-            with open(zip_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
-        else:
-            safe_name = file.filename.replace("/", "_").replace("\\", "_")
-            file_path = os.path.join(temp_dir, safe_name)
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-                
+        all_files.append(file)
     if files:
-        for f in files:
+        all_files.extend(files)
+
+    logger.debug(f"all_files count = {len(all_files)}")
+    if not all_files:
+        raise HTTPException(status_code=400, detail="No files provided in payload.")
+
+    for f in all_files:
+        if f.filename.endswith(".zip"):
+            zip_path = os.path.join(temp_dir, f.filename)
+            with open(zip_path, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer)
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    zip_ref.extractall(temp_dir)
+            except zipfile.BadZipFile:
+                logger.warning(f"Bad zip file: {f.filename}")
+        else:
             safe_name = f.filename.replace("/", "_").replace("\\", "_")
             file_path = os.path.join(temp_dir, safe_name)
             with open(file_path, "wb") as buffer:
@@ -189,7 +200,7 @@ async def upload_dicom_zip(
                         f"{ORTHANC_URL}/instances",
                         data=data_to_send,
                         headers={"Content-Type": "application/dicom"},
-                        auth=requests.auth.HTTPBasicAuth("cloudrad_pacs", "CloudR4d_P4cs_Secur3!")
+                        auth=requests.auth.HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD),
                     )
                     if res.status_code == 200:
                         try:
@@ -205,6 +216,7 @@ async def upload_dicom_zip(
         clinic_id = current_doctor.clinic_id
 
         if not study_info["patient_id"]:
+            logger.warning("os.walk found NO valid DICOM files or pydicom failed for all.")
             raise HTTPException(status_code=400, detail="No valid DICOM files found in payload.")
 
         # Check and create Patient in DB (filter by clinic_id too)

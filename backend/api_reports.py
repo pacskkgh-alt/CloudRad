@@ -66,8 +66,6 @@ def get_report(
     if auth_header.startswith("Bearer "):
         try:
             token_str = auth_header.split(" ", 1)[1]
-            doctor = auth.get_current_doctor.__wrapped__(token_str, db) if hasattr(auth.get_current_doctor, '__wrapped__') else None
-            # Simple JWT validation
             from jose import jwt as jose_jwt
             payload = jose_jwt.decode(token_str, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
             doctor_id = payload.get("sub")

@@ -1,9 +1,9 @@
-﻿import paramiko
+import paramiko
 import os
 
 host = "165.227.89.199"
 user = "root"
-password = "hKmMgFjxWJW9H4d9KVvL"
+password = "Q1K2PagKT7a"
 local_file = "cloudrad_deploy.tar.gz"
 remote_file = "/root/cloudrad_deploy.tar.gz"
 
