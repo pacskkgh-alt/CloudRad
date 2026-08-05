@@ -6,8 +6,7 @@ from fastapi.responses import JSONResponse
 from database import engine, Base
 import models
 import api_upload, api_reports, api_links, api_auth, api_admin, api_upload_chunked
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -18,7 +17,7 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CloudRad API", version="1.0.0", description="CloudRad MVP Backend")
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+from ratelimit import limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)

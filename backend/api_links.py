@@ -3,12 +3,13 @@ import os
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import requests
 import requests.auth
 import models, database, auth
+from ratelimit import limiter
 from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,8 @@ class VerifyLinkRequest(BaseModel):
 
 
 @router.post("/{token}/verify")
-def verify_link(token: str, req: VerifyLinkRequest, db: Session = Depends(database.get_db)):
+@limiter.limit("20/minute")
+def verify_link(request: Request, token: str, req: VerifyLinkRequest, db: Session = Depends(database.get_db)):
     """Public endpoint — patients use this to access shared studies."""
     link = db.query(models.SharedLink).filter(models.SharedLink.token == token).first()
     if not link:

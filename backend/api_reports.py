@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
 import models, database, auth
+from ratelimit import limiter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
@@ -99,7 +100,8 @@ def get_report(
 
 
 @router.get("/{study_id}/pdf")
-def download_pdf(study_id: str, token: str = None, db: Session = Depends(database.get_db)):
+@limiter.limit("30/minute")
+def download_pdf(request: Request, study_id: str, token: str = None, db: Session = Depends(database.get_db)):
     study = db.query(models.Study).filter(models.Study.id == study_id).first()
     report = db.query(models.Report).filter(models.Report.study_id == study_id).first()
 

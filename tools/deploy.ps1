@@ -1,5 +1,4 @@
 # CloudRad Unified Deployment
-# Replaces: deploy.ps1, deploy.js, deploy_fast.js, deploy_python.py, deploy_hetzner.py, reliable_deploy.ps1, hot_deploy.ps1
 # Usage: .\tools\deploy.ps1 [-Backend] [-Full] [-HotReload]
 
 param(
@@ -12,9 +11,9 @@ $ErrorActionPreference = "Stop"
 $SERVER = "165.227.89.199"
 $SSH = "root@$SERVER"
 
-Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  CloudRad Deployment" -ForegroundColor Cyan
-Write-Host "========================================`n" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 
 if ($HotReload) {
     Write-Host "[1/2] Syncing backend code..." -ForegroundColor Yellow
@@ -23,11 +22,11 @@ if ($HotReload) {
     Write-Host "[2/2] Restarting backend container..." -ForegroundColor Yellow
     ssh $SSH "cd /root/CloudRad && docker-compose -f docker-compose.prod.yml restart backend"
     
-    Write-Host "`n[DONE] Hot reload complete!" -ForegroundColor Green
+    Write-Host "[DONE] Hot reload complete!" -ForegroundColor Green
     exit 0
 }
 
-if ($Backend -or $Full) {
+if ($Backend.IsPresent -or $Full.IsPresent) {
     Write-Host "[1/4] Creating deployment archive..." -ForegroundColor Yellow
     $tarFiles = @("backend/", "docker-compose.prod.yml", ".env")
     if ($Full) { $tarFiles += "frontend/" }
@@ -40,24 +39,19 @@ if ($Backend -or $Full) {
     scp "d:\noor tela\CloudRad\cloudrad_deploy.tar.gz" "${SSH}:/root/CloudRad/"
     
     Write-Host "[3/4] Extracting and rebuilding..." -ForegroundColor Yellow
-    ssh $SSH @"
-        cd /root/CloudRad && \
-        tar -xzf cloudrad_deploy.tar.gz && \
-        rm cloudrad_deploy.tar.gz && \
-        docker-compose -f docker-compose.prod.yml up --build -d backend
-"@
+    ssh $SSH "cd /root/CloudRad && tar -xzf cloudrad_deploy.tar.gz && rm cloudrad_deploy.tar.gz && docker-compose -f docker-compose.prod.yml up --build -d backend"
     
     Write-Host "[4/4] Verifying deployment..." -ForegroundColor Yellow
     Start-Sleep -Seconds 5
     
     try {
         $response = Invoke-WebRequest -Uri "https://api.165-227-89-199.nip.io/health" -TimeoutSec 15 -UseBasicParsing
-        Write-Host "`n[PASS] Backend is healthy ($($response.StatusCode))" -ForegroundColor Green
+        Write-Host "[PASS] Backend is healthy ($($response.StatusCode))" -ForegroundColor Green
     } catch {
-        Write-Host "`n[WARN] Backend health check failed — may still be starting" -ForegroundColor Yellow
+        Write-Host "[WARN] Backend health check failed — may still be starting" -ForegroundColor Yellow
     }
     
-    Write-Host "`n[DONE] Deployment complete!" -ForegroundColor Green
+    Write-Host "[DONE] Deployment complete!" -ForegroundColor Green
 } else {
     Write-Host "Usage:" -ForegroundColor White
     Write-Host "  .\tools\deploy.ps1 -Backend     # Deploy backend only" -ForegroundColor Gray

@@ -141,7 +141,7 @@ async def upload_chunk(
 
         except Exception as e:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise HTTPException(status_code=500, detail=f"Failed to extract or process DICOM: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to extract or process DICOM payload due to an internal error.")
             
         # Store metadata into the Database
         if not study_info["patient_id"]:

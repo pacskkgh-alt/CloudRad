@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 import database
 import models
 import auth
+from ratelimit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -25,7 +26,8 @@ class LoginResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(req: LoginRequest, db: Session = Depends(database.get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, req: LoginRequest, db: Session = Depends(database.get_db)):
     doctor = db.query(models.Doctor).filter(models.Doctor.email == req.email).first()
 
     if not doctor or not auth.verify_password(req.password, doctor.password_hash):

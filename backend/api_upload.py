@@ -101,7 +101,7 @@ async def upload_dicom_zip(
     try:
         form = await request.form(max_files=100000, max_fields=100000)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid form data or payload format.")
         
     anonymize = form.get("anonymize") == "true" or form.get("anonymize") is True
     file = form.get("file")
