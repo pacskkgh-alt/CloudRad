@@ -52,6 +52,7 @@ def get_studies(
             "series_count": study.series_count,
             "instances_count": study.instances_count,
             "orthanc_study_uuid": study.orthanc_study_uuid,
+            "study_instance_uid": study.study_instance_uid,
             "study_date": str(study.study_date) if study.study_date else None,
             "created_at": str(study.created_at) if study.created_at else None,
             "has_report": study.report is not None,
@@ -268,6 +269,7 @@ async def upload_dicom_zip(
             study = models.Study(
                 patient_id=patient.id,
                 orthanc_study_uuid=actual_orthanc_uuid,
+                study_instance_uid=study_info["study_uid"],
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],

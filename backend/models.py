@@ -60,6 +60,7 @@ class Study(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), server_default=func.gen_random_uuid())
     patient_id = Column(String(36), ForeignKey("patients.id", ondelete="CASCADE"))
     orthanc_study_uuid = Column(String(255), nullable=False, unique=True)
+    study_instance_uid = Column(String(255), nullable=True)
     modality = Column(String(50), nullable=False)
     series_count = Column(Integer, default=1, server_default="1")
     instances_count = Column(Integer, default=0, server_default="0")

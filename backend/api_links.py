@@ -105,6 +105,7 @@ def verify_link(request: Request, token: str, req: VerifyLinkRequest, db: Sessio
     return {
         "study_id": study.id,
         "orthanc_study_uuid": study.orthanc_study_uuid,
+        "study_instance_uid": study.study_instance_uid,
         "allows_download": link.allows_download,
         "is_anonymized": link.is_anonymized,
         "patient_name": study.patient.full_name if study.patient else "غير متوفر",

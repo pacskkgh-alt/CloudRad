@@ -186,6 +186,7 @@ async def upload_chunk(
             study = models.Study(
                 patient_id=patient.id,
                 orthanc_study_uuid=study_info["study_uid"],
+                study_instance_uid=study_info.get("study_uid"),  # chunked logic variable reuse
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
                 instances_count=study_info["num_instances"],

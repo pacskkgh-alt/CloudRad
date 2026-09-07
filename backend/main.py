@@ -43,6 +43,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import api_upload, api_reports, api_links, api_auth, api_admin, api_upload_chunked, api_dicomweb
+
 # Routers
 app.include_router(api_auth.router)
 app.include_router(api_upload.router)
@@ -50,6 +52,7 @@ app.include_router(api_reports.router)
 app.include_router(api_links.router)
 app.include_router(api_admin.router)
 app.include_router(api_upload_chunked.router)
+app.include_router(api_dicomweb.router)
 
 # Global exception handler
 @app.exception_handler(Exception)
