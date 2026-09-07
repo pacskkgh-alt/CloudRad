@@ -24,6 +24,7 @@ services:
   orthanc:
     image: osimis/orthanc:21.2.0
     container_name: cloudrad_orthanc
+    env_file: .env
     ports:
       - "4242:4242" # DICOM
       - "8042:8042" # HTTP
@@ -50,7 +51,7 @@ services:
       - cloudrad_net
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "-u", "cloudrad_pacs:CloudR4d_P4cs_Secur3!", "http://localhost:8042/system"]
+      test: ["CMD", "curl", "-f", "-u", "${ORTHANC_USER}:${ORTHANC_PASSWORD}", "http://localhost:8042/system"]
       interval: 15s
       timeout: 5s
       retries: 3
