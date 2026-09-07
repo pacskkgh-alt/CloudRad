@@ -10,9 +10,11 @@ import pydicom
 import requests
 from io import BytesIO
 
+import re
 import models
 import database
 import auth
+from ratelimit import limiter
 from pydantic import BaseModel
 from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD, MAX_UPLOAD_SIZE
 
@@ -44,6 +46,10 @@ async def upload_chunk(
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=413, detail="Payload Too Large")
+
+    # Sanitize uploadId against path traversal
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", uploadId) or len(uploadId) > 100:
+        raise HTTPException(status_code=400, detail="Invalid upload ID format")
 
     tmp_dir = f"/tmp/{uploadId}"
     os.makedirs(tmp_dir, exist_ok=True)
@@ -82,7 +88,8 @@ async def upload_chunk(
             "patient_age": None,
             "patient_sex": "O",
             "body_part": None,
-            "institution_name": None
+            "institution_name": None,
+            "orthanc_study_uuid": None,
         }
         
         extracted_dir = os.path.join(tmp_dir, "extracted")
@@ -130,7 +137,14 @@ async def upload_chunk(
                                 headers={"Content-Type": "application/dicom"},
                                 auth=requests.auth.HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD),
                             )
-                            if res.status_code >= 400:
+                            if res.status_code == 200:
+                                try:
+                                    resp_json = res.json()
+                                    if "ParentStudy" in resp_json:
+                                        study_info["orthanc_study_uuid"] = resp_json["ParentStudy"]
+                                except Exception:
+                                    pass
+                            elif res.status_code >= 400:
                                 logger.warning(f"Orthanc rejected instance {file_name}: {res.status_code}")
                                 
                     except pydicom.errors.InvalidDicomError:
@@ -169,8 +183,9 @@ async def upload_chunk(
             db.refresh(patient)
             
         # Check / Create Study
+        actual_orthanc_uuid = study_info.get("orthanc_study_uuid") or study_info["study_uid"]
         study = db.query(models.Study).filter(
-            models.Study.orthanc_study_uuid == study_info["study_uid"]
+            models.Study.orthanc_study_uuid == actual_orthanc_uuid
         ).first()
         
         # We store StudyDate in DB (DateTime type) but we just have a string, models.py handles None or parsing.
@@ -185,7 +200,7 @@ async def upload_chunk(
         if not study:
             study = models.Study(
                 patient_id=patient.id,
-                orthanc_study_uuid=study_info["study_uid"],
+                orthanc_study_uuid=actual_orthanc_uuid,
                 study_instance_uid=study_info.get("study_uid"),  # chunked logic variable reuse
                 modality=study_info["modality"],
                 series_count=len(study_info["series_uids"]),
@@ -224,7 +239,9 @@ class GenerateShareLinkRequest(BaseModel):
     expiry_days: int
 
 @router.post("/generate-share-link")
+@limiter.limit("30/minute")
 def generate_share_link(
+    request: Request,
     req: GenerateShareLinkRequest,
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor)

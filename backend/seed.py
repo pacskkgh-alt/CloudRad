@@ -77,13 +77,29 @@ def seed_database():
     # But since this is a direct seed script, we will just emulate Orthanc injection & DB creation.
     
     ORTHANC_URL = os.getenv("ORTHANC_URL", "http://localhost:8042")
+    ORTHANC_USER = os.getenv("ORTHANC_USER")
+    ORTHANC_PASSWORD = os.getenv("ORTHANC_PASSWORD")
+    orthanc_auth = requests.auth.HTTPBasicAuth(ORTHANC_USER, ORTHANC_PASSWORD) if (ORTHANC_USER and ORTHANC_PASSWORD) else None
+
+    orthanc_uuid = None
     try:
         with open(dcm_file, "rb") as f:
-            res = requests.post(f"{ORTHANC_URL}/instances", data=f.read(), headers={"Content-Type": "application/dicom"})
+            res = requests.post(
+                f"{ORTHANC_URL}/instances",
+                data=f.read(),
+                headers={"Content-Type": "application/dicom"},
+                auth=orthanc_auth,
+            )
             if res.status_code == 200:
                 print("Uploaded dummy DICOM to Orthanc successfully.")
+                try:
+                    resp_json = res.json()
+                    if "ParentStudy" in resp_json:
+                        orthanc_uuid = resp_json["ParentStudy"]
+                except Exception:
+                    pass
             else:
-                print("Failed to upload to Orthanc (Check if Orthanc is running).")
+                print(f"Failed to upload to Orthanc (Status {res.status_code}: {res.text}).")
     except Exception as e:
         print(f"Could not connect to Orthanc to upload Seed DICOM: {e}")
 
@@ -103,11 +119,13 @@ def seed_database():
 
     # In a real scenario, extracting tags like api_upload.py, but here we just read the file we generated
     ds = pydicom.dcmread(dcm_file)
-    study = db.query(models.Study).filter(models.Study.orthanc_study_uuid == str(ds.StudyInstanceUID)).first()
+    actual_uuid = orthanc_uuid or str(ds.StudyInstanceUID)
+    study = db.query(models.Study).filter(models.Study.orthanc_study_uuid == actual_uuid).first()
     if not study:
         study = models.Study(
             patient_id=patient.id,
-            orthanc_study_uuid=str(ds.StudyInstanceUID),
+            orthanc_study_uuid=actual_uuid,
+            study_instance_uid=str(ds.StudyInstanceUID),
             modality=ds.Modality,
             series_count=1,
             instances_count=1

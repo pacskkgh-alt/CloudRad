@@ -32,9 +32,26 @@ async def dicomweb_proxy(
     body = await request.body()
     
     try:
-        if request.method == "POST":
-            # For upload via STOW-RS, doctors must be logged in. 
-            # In production, wrap this with a JWT auth dependency.
+        if request.method in ["POST", "PUT", "DELETE"]:
+            # Strictly enforce JWT authentication for upload (STOW-RS) and modifications
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                raise HTTPException(status_code=401, detail="Authentication required for DICOMweb mutations")
+            token_str = auth_header.split(" ", 1)[1]
+            from jose import jwt as jose_jwt
+            try:
+                payload = jose_jwt.decode(token_str, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+                doctor_id = payload.get("sub")
+                if not doctor_id:
+                    raise HTTPException(status_code=401, detail="Invalid authentication token")
+                doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
+                if not doctor or not doctor.is_active:
+                    raise HTTPException(status_code=403, detail="Active doctor account required")
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+
             res = requests.request(
                 method=request.method,
                 url=orthanc_target_url,

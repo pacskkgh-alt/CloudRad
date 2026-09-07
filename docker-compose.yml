@@ -39,6 +39,8 @@ services:
       - OHIF_PLUGIN_ENABLED=true
       - DICOM_WEB_PLUGIN_ENABLED=true
       - POSTGRESQL_PLUGIN_ENABLED=true
+      - ORTHANC__AUTHENTICATION_ENABLED=true
+      - 'ORTHANC__REGISTERED_USERS={"${ORTHANC_USER:-cloudrad_pacs}": "${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}"}'
       - ORTHANC__CORS_ALLOW_ORIGIN=${FRONTEND_URL:-http://localhost:5173}
       - ORTHANC__CORS_ALLOW_CREDENTIALS=true
       - ORTHANC__CORS_ALLOW_HEADERS=Origin, X-Requested-With, Content-Type, Accept, Authorization
@@ -51,7 +53,7 @@ services:
       - cloudrad_net
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "-u", "${ORTHANC_USER}:${ORTHANC_PASSWORD}", "http://localhost:8042/system"]
+      test: ["CMD", "curl", "-f", "-u", "${ORTHANC_USER:-cloudrad_pacs}:${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}", "http://localhost:8042/system"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -59,6 +61,7 @@ services:
   backend:
     build: ./backend
     container_name: cloudrad_fastapi
+    env_file: .env
     environment:
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
@@ -66,6 +69,8 @@ services:
       - POSTGRES_USER=cloudrad_admin
       - POSTGRES_PASSWORD=cloudrad_password
       - ORTHANC_URL=http://cloudrad_orthanc:8042
+      - ORTHANC_USER=${ORTHANC_USER:-cloudrad_pacs}
+      - ORTHANC_PASSWORD=${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}
       - JWT_SECRET=${JWT_SECRET:-cloudrad-dev-secret-change-in-production}
       - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
       - FRONTEND_URL=http://localhost:5173

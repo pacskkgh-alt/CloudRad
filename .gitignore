@@ -40,6 +40,10 @@ dummy.dcm
 
 # Logs
 *.log
+docker_logs.txt
+docker_err.txt
 
-# Misc payloads
+# Archives & Temporary Deployments
+*.tar.gz
+*.zip
 *.b64
