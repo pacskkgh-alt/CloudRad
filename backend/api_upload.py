@@ -116,16 +116,18 @@ async def upload_dicom_zip(
     os.makedirs(temp_dir, exist_ok=True)
     logger.debug(f"upload_dicom_zip called. file={file}, len(files)={len(files) if files else 'None'}")
     all_files = []
-    if file:
-        all_files.append(file)
     if files:
-        all_files.extend(files)
+        all_files = [f for f in files if f and getattr(f, 'filename', None)]
+    elif file and getattr(file, 'filename', None):
+        all_files = [file]
 
     logger.debug(f"all_files count = {len(all_files)}")
     if not all_files:
         raise HTTPException(status_code=400, detail="No files provided in payload.")
 
     for f in all_files:
+        if hasattr(f.file, "seek"):
+            f.file.seek(0)
         if f.filename.endswith(".zip"):
             zip_path = os.path.join(temp_dir, f.filename)
             with open(zip_path, "wb") as buffer:
