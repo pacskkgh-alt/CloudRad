@@ -144,3 +144,20 @@ class TeleradOrder(Base):
     sender_clinic = relationship("Clinic", foreign_keys=[sender_clinic_id])
     target_clinic = relationship("Clinic", foreign_keys=[target_clinic_id])
     assigned_radiologist = relationship("Doctor", foreign_keys=[assigned_radiologist_id])
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), server_default=func.gen_random_uuid())
+    doctor_id = Column(String(36), ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
+    clinic_id = Column(String(36), ForeignKey("clinics.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String(100), nullable=False)  # e.g., "VIEW_STUDY", "GENERATE_REPORT", "SHARE_LINK", "DISPATCH_TELERAD"
+    resource_type = Column(String(50), nullable=False)  # e.g., "Study", "Report", "Patient"
+    resource_id = Column(String(255), nullable=True)
+    details = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    doctor = relationship("Doctor")
+    clinic = relationship("Clinic")
