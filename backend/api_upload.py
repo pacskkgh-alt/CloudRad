@@ -125,20 +125,21 @@ async def upload_dicom_zip(
     if not all_files:
         raise HTTPException(status_code=400, detail="No files provided in payload.")
 
+    zip_path = None
     for f in all_files:
         if hasattr(f.file, "seek"):
             f.file.seek(0)
-        if f.filename.endswith(".zip"):
+        if f.filename and f.filename.lower().endswith(".zip"):
             zip_path = os.path.join(temp_dir, f.filename)
             with open(zip_path, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)
             try:
                 with zipfile.ZipFile(zip_path, "r") as zip_ref:
                     zip_ref.extractall(temp_dir)
-            except zipfile.BadZipFile:
-                logger.warning(f"Bad zip file: {f.filename}")
+            except (zipfile.BadZipFile, Exception) as zip_err:
+                logger.warning(f"Bad zip file or extraction failure for {f.filename}: {zip_err}")
         else:
-            safe_name = f.filename.replace("/", "_").replace("\\", "_")
+            safe_name = f.filename.replace("/", "_").replace("\\", "_") if f.filename else f"raw_{uuid.uuid4().hex}"
             file_path = os.path.join(temp_dir, safe_name)
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(f.file, buffer)

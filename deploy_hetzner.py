@@ -1,20 +1,27 @@
-﻿import paramiko
 import os
 import sys
 import time
 import logging
+import paramiko
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-host = os.getenv("DEPLOY_HOST", "165.227.89.199")
-user = os.getenv("DEPLOY_USER", "root")
-password = os.getenv("DEPLOY_PASSWORD", "hKmMgFjxWJW9H4d9KVvL")
-port = int(os.getenv("DEPLOY_PORT", "22"))
+DEFAULT_HOST = "165.227.89.199"
+DEFAULT_USER = "root"
+DEFAULT_PASSWORD = "hKmMgFjxWJW9H4d9KVvL"
+DEFAULT_PORT = "22"
 
-# Warn if using default credentials
-if not os.getenv("DEPLOY_PASSWORD"):
-    logger.warning("⚠️  Using default SSH credentials. Set DEPLOY_PASSWORD env var for production.")
+host = os.getenv("DEPLOY_HOST", DEFAULT_HOST)
+user = os.getenv("DEPLOY_USER", DEFAULT_USER)
+password = os.getenv("DEPLOY_PASSWORD", DEFAULT_PASSWORD)
+port = int(os.getenv("DEPLOY_PORT", DEFAULT_PORT))
+
+# Print strict warning if using fallback default credentials
+if password == DEFAULT_PASSWORD or not os.getenv("DEPLOY_PASSWORD"):
+    warning_text = "\n⚠️  [SECURITY WARNING] Using fallback default SSH credentials! Set DEPLOY_PASSWORD env variable for production.\n"
+    print(warning_text, file=sys.stderr)
+    logger.warning(warning_text)
 
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

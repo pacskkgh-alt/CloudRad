@@ -213,6 +213,15 @@ async def upload_chunk(
             db.add(study)
             db.commit()
             db.refresh(study)
+        else:
+            if study_info.get("study_time") and not study.study_time:
+                study.study_time = study_info.get("study_time")
+            if study_info.get("body_part") and not study.body_part:
+                study.body_part = study_info.get("body_part")
+            if study_info.get("institution_name") and not study.institution_name:
+                study.institution_name = study_info.get("institution_name")
+            db.commit()
+            db.refresh(study)
             
         shutil.rmtree(tmp_dir, ignore_errors=True)
         return {

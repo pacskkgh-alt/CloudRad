@@ -106,3 +106,41 @@ class Report(Base):
 
     study = relationship("Study", back_populates="report")
     doctor = relationship("Doctor", back_populates="reports")
+
+
+class SecondOpinionRequest(Base):
+    __tablename__ = "second_opinion_requests"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), server_default=func.gen_random_uuid())
+    study_id = Column(String(36), ForeignKey("studies.id", ondelete="CASCADE"), nullable=False)
+    patient_id = Column(String(36), ForeignKey("patients.id", ondelete="CASCADE"), nullable=True)
+    target_doctor_id = Column(String(36), ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(50), default="PENDING", server_default="PENDING")  # PENDING, ACCEPTED, COMPLETED
+    patient_notes = Column(Text, nullable=True)
+    doctor_opinion = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    study = relationship("Study")
+    patient = relationship("Patient")
+    target_doctor = relationship("Doctor", foreign_keys=[target_doctor_id])
+
+
+class TeleradOrder(Base):
+    __tablename__ = "telerad_orders"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), server_default=func.gen_random_uuid())
+    study_id = Column(String(36), ForeignKey("studies.id", ondelete="CASCADE"), nullable=False)
+    sender_clinic_id = Column(String(36), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    target_clinic_id = Column(String(36), ForeignKey("clinics.id", ondelete="CASCADE"), nullable=False)
+    assigned_radiologist_id = Column(String(36), ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
+    priority = Column(String(50), default="ROUTINE", server_default="ROUTINE")  # ROUTINE, URGENT_STAT
+    clinical_notes = Column(Text, nullable=True)
+    status = Column(String(50), default="DISPATCHED", server_default="DISPATCHED")  # DISPATCHED, IN_READING, COMPLETED, REJECTED
+    sla_deadline = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    study = relationship("Study")
+    sender_clinic = relationship("Clinic", foreign_keys=[sender_clinic_id])
+    target_clinic = relationship("Clinic", foreign_keys=[target_clinic_id])
+    assigned_radiologist = relationship("Doctor", foreign_keys=[assigned_radiologist_id])
