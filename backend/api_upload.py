@@ -93,7 +93,7 @@ def delete_study(
 async def upload_dicom_zip(
     request: Request,
     db: Session = Depends(database.get_db),
-    current_doctor: models.Doctor = Depends(auth.get_current_doctor),
+    current_doctor: models.Doctor = Depends(auth.require_tech),
 ):
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_UPLOAD_SIZE:

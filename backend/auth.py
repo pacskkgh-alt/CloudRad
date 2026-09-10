@@ -66,25 +66,27 @@ def get_current_doctor(
 ROLE_SUPER_ADMIN = "admin"
 ROLE_CLINIC_ADMIN = "clinic_admin"
 ROLE_DOCTOR = "doctor"
+ROLE_TECH = "technician"
+ROLE_RECEPTION = "reception"
 ROLE_STAFF = "user"
 
-def require_super_admin(current_user: models.Doctor = Depends(get_current_doctor)):
-    if current_user.role != ROLE_SUPER_ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية مدير النظام مطلوبة")
-    return current_user
+def require_roles(allowed_roles: list[str]):
+    def role_checker(current_user: models.Doctor = Depends(get_current_doctor)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="غير مصرح لك بالوصول إلى هذه الصفحة أو تنفيذ هذه العملية"
+            )
+        # Clinic admin validation
+        if current_user.role == ROLE_CLINIC_ADMIN and not current_user.clinic_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="الحساب غير مرتبط بأي عيادة")
+        return current_user
+    return role_checker
 
-def require_clinic_admin(current_user: models.Doctor = Depends(get_current_doctor)):
-    if current_user.role not in [ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية إدارة العيادة مطلوبة")
-    if current_user.role == ROLE_CLINIC_ADMIN and not current_user.clinic_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="الحساب غير مرتبط بأي عيادة")
-    return current_user
-
-def require_doctor(current_user: models.Doctor = Depends(get_current_doctor)):
-    if current_user.role not in [ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN, ROLE_DOCTOR]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية طبيب مطلوبة")
-    return current_user
-
-def require_user(current_user: models.Doctor = Depends(get_current_doctor)):
-    # Everyone logged in is at least a user
-    return current_user
+# صلاحيات محددة لكل دور
+require_super_admin = require_roles([ROLE_SUPER_ADMIN])
+require_clinic_admin = require_roles([ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN])
+require_doctor = require_roles([ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN, ROLE_DOCTOR])
+require_tech = require_roles([ROLE_SUPER_ADMIN, ROLE_DOCTOR, ROLE_TECH])
+require_reception = require_roles([ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN, ROLE_RECEPTION, ROLE_STAFF])
+require_user = require_roles([ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN, ROLE_DOCTOR, ROLE_TECH, ROLE_RECEPTION, ROLE_STAFF])
