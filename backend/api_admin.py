@@ -9,7 +9,7 @@ import models
 import auth
 
 # Protect ENTIRE router for 'admin' role only.
-router = APIRouter(prefix="/api/admin", tags=["Admin Management"], dependencies=[Depends(auth.require_admin)])
+router = APIRouter(prefix="/api/admin", tags=["Admin Management"], dependencies=[Depends(auth.require_super_admin)])
 
 # --- Schemas ---
 class ClinicCreate(BaseModel):

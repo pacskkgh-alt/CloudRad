@@ -62,17 +62,29 @@ def get_current_doctor(
         )
     return doctor
 
-def check_role(allowed_roles: list[str]):
-    def role_dependency(doctor: models.Doctor = Depends(get_current_doctor)):
-        if doctor.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied (requires role: {', '.join(allowed_roles)})"
-            )
-        return doctor
-    return role_dependency
+# الأدوار المدعومة في النظام
+ROLE_SUPER_ADMIN = "admin"
+ROLE_CLINIC_ADMIN = "clinic_admin"
+ROLE_DOCTOR = "doctor"
+ROLE_STAFF = "user"
 
-require_admin = check_role(["admin"])
-require_clinic_admin = check_role(["admin", "clinic_admin"])
-require_doctor = check_role(["admin", "clinic_admin", "doctor"])
-require_user = check_role(["admin", "clinic_admin", "doctor", "user"])
+def require_super_admin(current_user: models.Doctor = Depends(get_current_doctor)):
+    if current_user.role != ROLE_SUPER_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية مدير النظام مطلوبة")
+    return current_user
+
+def require_clinic_admin(current_user: models.Doctor = Depends(get_current_doctor)):
+    if current_user.role not in [ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية إدارة العيادة مطلوبة")
+    if current_user.role == ROLE_CLINIC_ADMIN and not current_user.clinic_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="الحساب غير مرتبط بأي عيادة")
+    return current_user
+
+def require_doctor(current_user: models.Doctor = Depends(get_current_doctor)):
+    if current_user.role not in [ROLE_SUPER_ADMIN, ROLE_CLINIC_ADMIN, ROLE_DOCTOR]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="صلاحية طبيب مطلوبة")
+    return current_user
+
+def require_user(current_user: models.Doctor = Depends(get_current_doctor)):
+    # Everyone logged in is at least a user
+    return current_user
