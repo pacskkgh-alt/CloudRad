@@ -40,7 +40,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     clinic_id: Optional[str] = None
-    is_active: bool = True
+    is_active: Optional[bool] = True
     
     class Config:
         from_attributes = True
@@ -137,8 +137,12 @@ def get_global_links(db: Session = Depends(database.get_db)):
     
     for link in links:
         is_active = True
-        if link.expires_at and link.expires_at < datetime.now(timezone.utc):
-            is_active = False
+        if link.expires_at:
+            expires = link.expires_at
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires < datetime.now(timezone.utc):
+                is_active = False
 
         doctor_name = link.doctor.full_name if link.doctor else "Unknown"
         patient_name = link.study.patient.full_name if (link.study and link.study.patient) else "Unknown"
