@@ -241,6 +241,10 @@ async def upload_dicom_zip(
                     db.commit()
                     db.refresh(clinic)
                 clinic_id = clinic.id
+                
+                # Assign this clinic to the doctor so they can see the uploaded study
+                current_doctor.clinic_id = clinic_id
+                db.commit()
 
             patient = models.Patient(
                 clinic_id=clinic_id,

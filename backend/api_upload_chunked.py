@@ -171,6 +171,19 @@ async def upload_chunk(
         ).first()
         
         if not patient:
+            if not clinic_id:
+                clinic = db.query(models.Clinic).first()
+                if not clinic:
+                    clinic = models.Clinic(name="Default MVP Clinic")
+                    db.add(clinic)
+                    db.commit()
+                    db.refresh(clinic)
+                clinic_id = clinic.id
+                
+                # Assign this clinic to the doctor so they can see the uploaded study
+                current_doctor.clinic_id = clinic_id
+                db.commit()
+                
             patient = models.Patient(
                 clinic_id=clinic_id,
                 patient_id_number=study_info["patient_id"],

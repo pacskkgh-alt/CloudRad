@@ -73,5 +73,6 @@ def check_role(allowed_roles: list[str]):
     return role_dependency
 
 require_admin = check_role(["admin"])
-require_doctor = check_role(["admin", "doctor"])
-require_user = check_role(["admin", "doctor", "user"])
+require_clinic_admin = check_role(["admin", "clinic_admin"])
+require_doctor = check_role(["admin", "clinic_admin", "doctor"])
+require_user = check_role(["admin", "clinic_admin", "doctor", "user"])
