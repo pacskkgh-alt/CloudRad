@@ -273,6 +273,17 @@ async def upload_dicom_zip(
             .first()
         )
         if not study:
+            priority = form.get("priority") or "routine"
+            # Default SLA
+            from datetime import timedelta, timezone
+            now = datetime.now(timezone.utc)
+            if priority == "stat":
+                sla_deadline = now + timedelta(hours=1)
+            elif priority == "urgent":
+                sla_deadline = now + timedelta(hours=4)
+            else:
+                sla_deadline = now + timedelta(hours=24)
+
             study = models.Study(
                 patient_id=patient.id,
                 orthanc_study_uuid=actual_orthanc_uuid,
@@ -284,6 +295,10 @@ async def upload_dicom_zip(
                 study_time=study_info["study_time"],
                 body_part=study_info["body_part"],
                 institution_name=study_info["institution"],
+                priority=priority,
+                workflow_status="unassigned",
+                sla_deadline=sla_deadline,
+                clinical_history=form.get("clinical_history", ""),
             )
             db.add(study)
             db.commit()

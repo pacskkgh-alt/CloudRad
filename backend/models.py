@@ -68,11 +68,20 @@ class Study(Base):
     study_time = Column(String(50), nullable=True)
     body_part = Column(String(100), nullable=True)
     institution_name = Column(String(255), nullable=True)
+    
+    # Teleradiology & Workflow fields
+    priority = Column(String(50), default="routine", server_default="routine")
+    workflow_status = Column(String(50), default="unassigned", server_default="unassigned")
+    assigned_doctor_id = Column(String(36), ForeignKey("doctors.id", ondelete="SET NULL"), nullable=True)
+    sla_deadline = Column(DateTime(timezone=True), nullable=True)
+    clinical_history = Column(Text, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     patient = relationship("Patient", back_populates="studies")
     shared_links = relationship("SharedLink", back_populates="study", cascade="all, delete-orphan")
     report = relationship("Report", back_populates="study", uselist=False, cascade="all, delete-orphan")
+    assigned_doctor = relationship("Doctor", foreign_keys=[assigned_doctor_id])
 
 
 class SharedLink(Base):
