@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from typing import List
 import models, database, auth
 from api_config import ORTHANC_URL, ORTHANC_USER, ORTHANC_PASSWORD, MAX_UPLOAD_SIZE
+from audit_service import log_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ def get_studies(
 @router.delete("/studies/{study_id}")
 def delete_study(
     study_id: str,
+    request: Request,
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.get_current_doctor),
 ):
@@ -83,6 +85,16 @@ def delete_study(
     except Exception as e:
         logger.warning(f"Orthanc connection failed during delete: {e}")
 
+    log_audit_event(
+        db=db,
+        action="DELETE_STUDY",
+        resource_type="Study",
+        resource_id=study_id,
+        doctor_id=current_doctor.id,
+        clinic_id=current_doctor.clinic_id,
+        details=f"orthanc_uuid={study.orthanc_study_uuid}",
+        ip_address=request.client.host if request.client else None,
+    )
     # Delete from DB
     db.delete(study)
     db.commit()
@@ -308,8 +320,19 @@ async def upload_dicom_zip(
         shutil.rmtree(temp_dir, ignore_errors=True)
         logger.info(f"Cleaned up temporary directory: {temp_dir}")
 
+    log_audit_event(
+        db=db,
+        action="UPLOAD_STUDY",
+        resource_type="Study",
+        resource_id=study.id,
+        doctor_id=current_doctor.id,
+        clinic_id=current_doctor.clinic_id,
+        details=f"modality={study.modality}, instances={study.instances_count}, patient={patient.patient_id_number}",
+        ip_address=request.client.host if request.client else None,
+    )
+
     return {
-        "message": "Upload successful", 
+        "message": "Upload successful",
         "study_id": study.id,
         "metadata": {
             "patient_name": patient.full_name,
@@ -321,6 +344,6 @@ async def upload_dicom_zip(
             "study_time": study.study_time,
             "body_part": study.body_part,
             "instances_count": study.instances_count,
-            "institution_name": study.institution_name
-        }
+            "institution_name": study.institution_name,
+        },
     }

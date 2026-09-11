@@ -1,113 +1,40 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
-    container_name: cloudrad_postgres
-    environment:
-      POSTGRES_USER: cloudrad_admin
-      POSTGRES_PASSWORD: cloudrad_password
-      POSTGRES_DB: cloudrad_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - cloudrad_net
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cloudrad_admin -d cloudrad_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  orthanc:
-    image: osimis/orthanc:21.2.0
-    container_name: cloudrad_orthanc
-    env_file: .env
-    ports:
-      - "4242:4242" # DICOM
-      - "8042:8042" # HTTP
-    environment:
-      - ORTHANC_NAME=CloudRad PACS
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudrad_db
-      - POSTGRES_USER=cloudrad_admin
-      - POSTGRES_PASSWORD=cloudrad_password
-      - OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED=true
-      - OHIF_PLUGIN_ENABLED=true
-      - DICOM_WEB_PLUGIN_ENABLED=true
-      - POSTGRESQL_PLUGIN_ENABLED=true
-      - ORTHANC__AUTHENTICATION_ENABLED=true
-      - 'ORTHANC__REGISTERED_USERS={"${ORTHANC_USER:-cloudrad_pacs}": "${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}"}'
-      - ORTHANC__CORS_ALLOW_ORIGIN=${FRONTEND_URL:-http://localhost:5173}
-      - ORTHANC__CORS_ALLOW_CREDENTIALS=true
-      - ORTHANC__CORS_ALLOW_HEADERS=Origin, X-Requested-With, Content-Type, Accept, Authorization
-      - ORTHANC__CORS_ALLOW_METHODS=GET, POST, PUT, DELETE, OPTIONS
-    depends_on:
-      - db
-    volumes:
-      - orthanc_data:/var/lib/orthanc/db
-    networks:
-      - cloudrad_net
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "-u", "${ORTHANC_USER:-cloudrad_pacs}:${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}", "http://localhost:8042/system"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-
   backend:
-    build: ./backend
-    container_name: cloudrad_fastapi
-    env_file: .env
-    environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=cloudrad_db
-      - POSTGRES_USER=cloudrad_admin
-      - POSTGRES_PASSWORD=cloudrad_password
-      - ORTHANC_URL=http://cloudrad_orthanc:8042
-      - ORTHANC_USER=${ORTHANC_USER:-cloudrad_pacs}
-      - ORTHANC_PASSWORD=${ORTHANC_PASSWORD:-CloudR4d_P4cs_Secur3!}
-      - JWT_SECRET=${JWT_SECRET:-cloudrad-dev-secret-change-in-production}
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
-      - FRONTEND_URL=http://localhost:5173
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudrad_backend
+    restart: always
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      orthanc:
-        condition: service_healthy
-    networks:
-      - cloudrad_net
-    restart: always
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-
-  frontend:
-    image: node:20
-    container_name: cloudrad_frontend
-    working_dir: /app
+    environment:
+      - JWT_SECRET=${JWT_SECRET}
+      - ORTHANC_URL=http://orthanc:8042
+      - ORTHANC_USER=${ORTHANC_USER}
+      - ORTHANC_PASSWORD=${ORTHANC_PASSWORD}
+      - DATABASE_URL=sqlite:///./cloudrad.db # Change to PostgreSQL URL in real production
     volumes:
-      - ./frontend:/app
+      - ./backend/data:/app/data # For SQLite database persistence
+    depends_on:
+      - orthanc
+
+  orthanc:
+    image: orthanc/orthanc
+    container_name: cloudrad_orthanc
+    restart: always
     ports:
-      - "5173:5173"
-    command: >
-      sh -c "npm install && npm run dev"
-    init: true
-    networks:
-      - cloudrad_net
+      - "8042:8042" # HTTP port (REST API & Web UI)
+      - "4242:4242" # DICOM port
+    environment:
+      - ORTHANC_NAME=CloudRad PACS
+      - WADO_URI_ENABLE=true
+      # We pass the credentials from the top-level .env so Orthanc requires them for HTTP basic auth
+    volumes:
+      - orthanc_storage:/var/lib/orthanc/db/
+      - ./orthanc.json:/etc/orthanc/orthanc.json:ro # Custom config if needed
+    command: /etc/orthanc/
 
 volumes:
-  postgres_data:
-  orthanc_data:
-
-networks:
-  cloudrad_net:
-    driver: bridge
+  orthanc_storage:

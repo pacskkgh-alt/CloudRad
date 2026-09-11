@@ -47,3 +47,8 @@ docker_err.txt
 *.tar.gz
 *.zip
 *.b64
+
+# Database
+*.db
+cloudrad.db
+backend/data/

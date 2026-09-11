@@ -15,6 +15,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib.utils import simpleSplit
+from audit_service import log_audit_event
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
@@ -31,11 +32,13 @@ class ReportCreate(BaseModel):
 @router.post("/")
 def create_or_update_report(
     report_in: ReportCreate,
+    request: Request,
     db: Session = Depends(database.get_db),
     current_doctor: models.Doctor = Depends(auth.require_doctor),
 ):
-    report = db.query(models.Report).filter(models.Report.study_id == report_in.study_id).first()
-    if report:
+    existing_report = db.query(models.Report).filter(models.Report.study_id == report_in.study_id).first()
+    if existing_report:
+        report = existing_report
         report.report_content = bleach.clean(report_in.report_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS)
         report.is_finalized = report_in.is_finalized
         report.doctor_id = current_doctor.id
@@ -49,6 +52,17 @@ def create_or_update_report(
         db.add(report)
     db.commit()
     db.refresh(report)
+
+    log_audit_event(
+        db=db,
+        action="CREATE_REPORT" if not report else "UPDATE_REPORT",
+        resource_type="Report",
+        resource_id=report.id,
+        doctor_id=current_doctor.id,
+        clinic_id=current_doctor.clinic_id,
+        details=f"study_id={report_in.study_id}, finalized={report_in.is_finalized}",
+        ip_address=request.client.host if request.client else None,
+    )
     return {"message": "Report saved successfully", "id": report.id}
 
 

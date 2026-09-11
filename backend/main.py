@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from database import engine, Base
 import models
 import api_upload, api_reports, api_links, api_auth, api_admin, api_upload_chunked
+import api_ws
+import api_analytics
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -57,6 +59,8 @@ app.include_router(api_dicomweb.router)
 app.include_router(api_consultations.router)
 app.include_router(api_telerad.router)
 app.include_router(api_partner.router)
+app.include_router(api_ws.router)
+app.include_router(api_analytics.router)
 
 # Global exception handler
 @app.exception_handler(Exception)
