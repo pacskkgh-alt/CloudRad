@@ -21,7 +21,7 @@ services:
       - orthanc
 
   orthanc:
-    image: orthanc/orthanc
+    image: jodogne/orthanc-plugins
     container_name: cloudrad_orthanc
     restart: always
     ports:

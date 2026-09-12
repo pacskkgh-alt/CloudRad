@@ -1,5 +1,5 @@
 Import-Module Posh-SSH
-$cred = New-Object System.Management.Automation.PSCredential('root', (ConvertTo-SecureString 'Q1K2PagKT7a' -AsPlainText -Force))
+$cred = New-Object System.Management.Automation.PSCredential('root', (ConvertTo-SecureString 'hKmMgFjxWJW9H4d9KVvL' -AsPlainText -Force))
 
 Write-Output "Building deployment tar..."
 tar -czf cloudrad_backend.tar.gz backend pacs_location.conf

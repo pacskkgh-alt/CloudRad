@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, File, Building, LogOut, Plus, Trash2, User, BarChart2 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl, getAuthHeaders } from '../config';
@@ -15,6 +16,7 @@ export default function AdminDashboard({ doctor, onLogout }) {
   const [clinics, setClinics] = useState([]);
   const [links, setLinks] = useState([]);
   const [stats, setStats] = useState({ totalStudies: 0 });
+  const navigate = useNavigate();
 
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClinicModal, setShowClinicModal] = useState(false);
@@ -239,8 +241,11 @@ export default function AdminDashboard({ doctor, onLogout }) {
            <button onClick={()=>setActiveTab('links')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${activeTab==='links'?'bg-rose-600 text-white shadow-lg':'text-slate-400 hover:text-white flex-shrink-0'}`}>مراقبة وتسجيل المشاركات</button>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button onClick={onLogout} className="p-2.5 rounded-full bg-rose-500/10 text-rose-500 hover:bg-rose-500/20" title="خروج"><LogOut className="w-5 h-5" /></button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/tech/upload-station')} className="text-xs bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 px-3 py-2 rounded-lg transition font-bold whitespace-nowrap">محطة الرفع</button>
+          <button onClick={() => navigate('/telerad')} className="text-xs bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 px-3 py-2 rounded-lg transition font-bold whitespace-nowrap">Teleradiology</button>
+          <button onClick={() => navigate('/doctor/workspace')} className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-2 rounded-lg transition font-bold whitespace-nowrap">محطة الطبيب</button>
+          <button onClick={onLogout} className="p-2.5 rounded-full bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 ml-2" title="خروج"><LogOut className="w-5 h-5" /></button>
         </div>
       </header>
 

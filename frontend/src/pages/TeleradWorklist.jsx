@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 import { Activity, Clock, Eye, CheckCircle, ShieldAlert, ChevronLeft, ChevronRight, Bell, BellOff } from "lucide-react";
 import { getApiUrl, getWsUrl, getAuthToken, getAuthHeaders } from "../config";
 
 const PAGE_SIZE = 10;
 
-export default function TeleradWorklist() {
+export default function TeleradWorklist({ doctor, onLogout }) {
   const [cases, setCases]               = useState([]);
+  const navigate = useNavigate();
   const [filterPriority, setFilterPriority] = useState("all");
   const [page, setPage]                 = useState(1);
   const [wsStatus, setWsStatus]         = useState("connecting"); // connecting | open | closed
@@ -188,6 +190,16 @@ export default function TeleradWorklist() {
             </button>
           ))}
         </div>
+        <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition ml-4">تسجيل الخروج</button>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => navigate('/doctor/workspace')} className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 rounded-lg transition font-bold">محطة الطبيب التشخيصية</button>
+        <button onClick={() => navigate('/tech/upload-station')} className="text-xs bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 px-4 py-2 rounded-lg transition font-bold">محطة رفع الفحوصات (DICOM)</button>
+        {(doctor?.role === 'admin' || doctor?.role === 'clinic_admin') && (
+            <button onClick={() => navigate('/admin')} className="text-xs bg-slate-500/20 text-slate-400 hover:bg-slate-500/30 px-4 py-2 rounded-lg transition font-bold">لوحة الإدارة</button>
+        )}
       </div>
 
       {/* Summary chips */}

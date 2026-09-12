@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 import { Stethoscope, FileText, Eye, Download, CheckCircle, ChevronLeft, ChevronRight, RefreshCcw } from "lucide-react";
 import { getApiUrl, getAuthHeaders } from "../config";
@@ -13,6 +14,7 @@ export default function DoctorWorkspace({ doctor, onLogout }) {
   const [page, setPage]                 = useState(1);
   const [loading, setLoading]           = useState(false);
   const [saving, setSaving]             = useState(false);
+  const navigate = useNavigate();
 
   const API_URL = getApiUrl();
 
@@ -124,6 +126,15 @@ export default function DoctorWorkspace({ doctor, onLogout }) {
             تسجيل الخروج
           </button>
         </div>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => navigate('/telerad')} className="text-xs bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 px-4 py-2 rounded-lg transition font-bold">شبكة Teleradiology</button>
+        <button onClick={() => navigate('/tech/upload-station')} className="text-xs bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 px-4 py-2 rounded-lg transition font-bold">محطة رفع الفحوصات (DICOM)</button>
+        {(doctor?.role === 'admin' || doctor?.role === 'clinic_admin') && (
+            <button onClick={() => navigate('/admin')} className="text-xs bg-slate-500/20 text-slate-400 hover:bg-slate-500/30 px-4 py-2 rounded-lg transition font-bold">لوحة الإدارة</button>
+        )}
       </div>
 
       {/* Stats */}

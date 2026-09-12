@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 import { Users, Link as LinkIcon, Download, RefreshCcw, Copy } from "lucide-react";
 import { getApiUrl } from "../config";
@@ -7,6 +8,7 @@ export default function ReceptionPortal({ user, onLogout }) {
   const [studies, setStudies] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sharedLinks, setSharedLinks] = useState({});
+  const navigate = useNavigate();
 
   const token = localStorage.getItem("cloudrad_token");
   const API_URL = getApiUrl();
@@ -68,6 +70,17 @@ export default function ReceptionPortal({ user, onLogout }) {
           </div>
           <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition">تسجيل الخروج</button>
         </div>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex items-center gap-3 mb-4">
+        {(user?.role === 'admin' || user?.role === 'clinic_admin' || user?.role === 'doctor') && (
+            <button onClick={() => navigate('/doctor/workspace')} className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 rounded-lg transition font-bold">محطة الطبيب التشخيصية</button>
+        )}
+        <button onClick={() => navigate('/tech/upload-station')} className="text-xs bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 px-4 py-2 rounded-lg transition font-bold">محطة رفع الفحوصات (DICOM)</button>
+        {(user?.role === 'admin' || user?.role === 'clinic_admin') && (
+            <button onClick={() => navigate('/admin')} className="text-xs bg-slate-500/20 text-slate-400 hover:bg-slate-500/30 px-4 py-2 rounded-lg transition font-bold">لوحة الإدارة</button>
+        )}
       </div>
 
       <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5">

@@ -33,10 +33,10 @@ try:
     # Retry loop for ssh connect
     for _ in range(5):
         try:
-            ssh.connect(host, port, user, password, timeout=10)
+            ssh.connect(host, port, user, password, timeout=60, auth_timeout=60, banner_timeout=120)
             break
-        except Exception:
-            print("Retrying connection in 5 seconds...")
+        except Exception as e:
+            print(f"Retrying connection in 5 seconds... ({e})")
             time.sleep(5)
     else:
         raise Exception("Could not connect after 5 retries.")
@@ -57,12 +57,14 @@ try:
         f"mkdir -p ~/.ssh && echo '{pub_key}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" if pub_key else "echo 'No local ssh key'",
         "mkdir -p /app",
         "tar -xzf /root/cloudrad_deploy.tar.gz -C /app",
+        "if [ ! -f /swapfile ]; then fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048; chmod 600 /swapfile; mkswap /swapfile; swapon /swapfile; echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi",
         "sudo apt-get update",
         "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io curl",
         "mkdir -p ~/.docker/cli-plugins/ && curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose && chmod +x ~/.docker/cli-plugins/docker-compose",
         "cd /app && mv docker-compose.prod.yml docker-compose.yml",
+        "cd /app && touch pacs_location.conf && echo 'client_max_body_size 100M;' > client_max_body_size.conf",
         "cd /app && docker compose down",
-        "docker builder prune -a -f",
+        "docker system prune -a --volumes -f",
         "cd /app && docker compose build --no-cache",
         "cd /app && docker compose up -d --remove-orphans"
     ]

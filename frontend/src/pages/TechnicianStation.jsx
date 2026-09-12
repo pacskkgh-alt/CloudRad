@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 import { HardDrive, FileArchive, RefreshCcw, Eye } from "lucide-react";
 import { getApiUrl } from "../config";
@@ -9,6 +10,7 @@ export default function TechnicianStation({ user, onLogout }) {
   const [progress, setProgress] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
   const token = localStorage.getItem("cloudrad_token");
   const API_URL = getApiUrl();
@@ -93,6 +95,19 @@ export default function TechnicianStation({ user, onLogout }) {
           </div>
           <button onClick={onLogout} className="text-xs bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition">تسجيل الخروج</button>
         </div>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex items-center gap-3 mb-4">
+        {(user?.role === 'admin' || user?.role === 'clinic_admin' || user?.role === 'doctor') && (
+            <>
+                <button onClick={() => navigate('/telerad')} className="text-xs bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 px-4 py-2 rounded-lg transition font-bold">شبكة Teleradiology</button>
+                <button onClick={() => navigate('/doctor/workspace')} className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 rounded-lg transition font-bold">محطة الطبيب التشخيصية</button>
+            </>
+        )}
+        {(user?.role === 'admin' || user?.role === 'clinic_admin') && (
+            <button onClick={() => navigate('/admin')} className="text-xs bg-slate-500/20 text-slate-400 hover:bg-slate-500/30 px-4 py-2 rounded-lg transition font-bold">لوحة الإدارة</button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
